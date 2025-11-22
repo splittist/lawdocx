@@ -1,7 +1,5 @@
 """Tests to verify required dependencies are available."""
 
-import pytest
-
 
 def test_click_import():
     """Test that click can be imported."""
