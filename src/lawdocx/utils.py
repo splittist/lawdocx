@@ -1,0 +1,49 @@
+"""Shared utilities for hashing, timestamps, and JSON envelope creation."""
+from __future__ import annotations
+
+import hashlib
+import json
+from datetime import datetime, timezone
+from typing import IO, Iterable
+
+from lawdocx import __version__
+
+
+def utc_timestamp() -> str:
+    """Return an ISO 8601 UTC timestamp suitable for envelopes and logs."""
+
+    return datetime.now(timezone.utc).isoformat()
+
+
+def hash_bytes(data: bytes) -> str:
+    """Return the SHA-256 hex digest for a bytes payload."""
+
+    return hashlib.sha256(data).hexdigest()
+
+
+def hash_file(path: str, *, chunk_size: int = 8192) -> str:
+    """Return the SHA-256 hex digest for a file without loading it entirely into memory."""
+
+    sha = hashlib.sha256()
+    with open(path, "rb") as handle:
+        for chunk in iter(lambda: handle.read(chunk_size), b""):
+            sha.update(chunk)
+    return sha.hexdigest()
+
+
+def build_envelope(*, tool: str, files: Iterable[dict], generated_at: str | None = None) -> dict:
+    """Construct a standard lawdocx JSON envelope for tool outputs."""
+
+    return {
+        "lawdocx_version": __version__,
+        "tool": tool,
+        "generated_at": generated_at or utc_timestamp(),
+        "files": list(files),
+    }
+
+
+def dump_json_line(data: dict, output_handle: IO) -> None:
+    """Serialize a dictionary as JSON followed by a newline to support streaming outputs."""
+
+    json.dump(data, output_handle)
+    output_handle.write("\n")

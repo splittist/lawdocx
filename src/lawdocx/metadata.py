@@ -1,11 +1,8 @@
 """Metadata extraction for DOCX files."""
 from __future__ import annotations
 
-import hashlib
-import json
 import os
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from tempfile import NamedTemporaryFile
 from typing import Iterable, List
 from uuid import uuid4
@@ -13,8 +10,8 @@ from uuid import uuid4
 from docx2python import docx2python
 from lxml import etree
 
-from lawdocx import __version__
 from lawdocx.io_utils import InputSource
+from lawdocx.utils import build_envelope, dump_json_line, hash_bytes, utc_timestamp
 
 
 @dataclass
@@ -184,7 +181,14 @@ def _extract_revision_parts(reader, file_index: int) -> list[Finding]:
 
 
 def collect_metadata(file_path: str, file_index: int = 0) -> list[Finding]:
-    """Extract metadata from a DOCX file."""
+    """Extract metadata from a DOCX file.
+
+    The ``collect_*`` helpers form the minimal interface for tool modules: they
+    accept a path to the working file (plus an optional ``file_index`` when
+    merging results) and return a list of serializable finding objects.
+    Keeping this surface small helps future tools stay well under the
+    150-line-per-module guideline.
+    """
 
     findings: list[Finding] = []
     try:
@@ -212,24 +216,22 @@ def collect_metadata(file_path: str, file_index: int = 0) -> list[Finding]:
     return findings
 
 
-def _calculate_sha256(data: bytes) -> str:
-    return hashlib.sha256(data).hexdigest()
-
-
-def _serialize_envelope(envelope: dict, output_handle) -> None:
-    json.dump(envelope, output_handle)
-    output_handle.write("\n")
-
-
 def run_metadata(inputs: Iterable[InputSource], merge: bool, output_handle) -> None:
-    """Extract metadata for one or more input sources."""
+    """Extract metadata for one or more input sources.
 
-    generated_at = datetime.now(timezone.utc).isoformat()
+    ``run_*`` helpers coordinate reading/writing concerns for CLI entrypoints:
+    they accept resolved ``InputSource`` objects, handle merging, and stream the
+    resulting JSONL envelopes to ``output_handle``.  The orchestration logic
+    lives here so the CLI glue can stay thin and every tool module remains well
+    below the 150-line ceiling.
+    """
+
+    generated_at = utc_timestamp()
     merged_files: List[dict] = []
 
     for file_index, source in enumerate(inputs):
         data = source.handle.read()
-        sha256 = _calculate_sha256(data)
+        sha256 = hash_bytes(data)
 
         temp_path: str | None = None
         if source.is_stdin:
@@ -254,19 +256,17 @@ def run_metadata(inputs: Iterable[InputSource], merge: bool, output_handle) -> N
         if merge:
             merged_files.append(file_entry)
         else:
-            envelope = {
-                "lawdocx_version": __version__,
-                "tool": "lawdocx-metadata",
-                "generated_at": generated_at,
-                "files": [file_entry],
-            }
-            _serialize_envelope(envelope, output_handle)
+            envelope = build_envelope(
+                tool="lawdocx-metadata",
+                files=[file_entry],
+                generated_at=generated_at,
+            )
+            dump_json_line(envelope, output_handle)
 
     if merge:
-        envelope = {
-            "lawdocx_version": __version__,
-            "tool": "lawdocx-metadata",
-            "generated_at": generated_at,
-            "files": merged_files,
-        }
-        _serialize_envelope(envelope, output_handle)
+        envelope = build_envelope(
+            tool="lawdocx-metadata",
+            files=merged_files,
+            generated_at=generated_at,
+        )
+        dump_json_line(envelope, output_handle)
