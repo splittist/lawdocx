@@ -3,6 +3,8 @@
 import click
 
 from lawdocx import __version__
+from lawdocx import io_utils
+from lawdocx.metadata import run_metadata
 
 
 @click.group()
@@ -44,6 +46,35 @@ def info(input_file):
     click.echo(f"Getting info for {input_file}")
     # Placeholder for actual implementation
     click.echo("This is a placeholder for info functionality")
+
+
+@main.command()
+@click.argument("paths", nargs=-1, required=True)
+@click.option(
+    "--output",
+    "-o",
+    type=click.File("w"),
+    default="-",
+    show_default="stdout",
+    help="Output file path or '-' for stdout.",
+)
+@click.option(
+    "--merge",
+    is_flag=True,
+    help="Combine metadata from multiple files into a single envelope.",
+)
+def metadata(paths, output, merge):
+    """Extract metadata from one or more DOCX files."""
+
+    inputs = io_utils.resolve_inputs(paths, mode="rb")
+    output_handle, should_close = io_utils.resolve_output_handle(output, mode="w")
+
+    try:
+        run_metadata(inputs, merge, output_handle)
+    finally:
+        if should_close:
+            output_handle.close()
+        io_utils.close_inputs(inputs)
 
 
 if __name__ == "__main__":
