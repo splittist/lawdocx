@@ -157,16 +157,21 @@ def _extract_custom_properties(files: list, file_index: int) -> list[Finding]:
 def _extract_revision_parts(reader, file_index: int) -> list[Finding]:
     findings: list[Finding] = []
     try:
-        revision_files = [
-            file for file in reader.files if "revision" in file.path.lower()
-        ]
-        for rev_file in revision_files:
-            raw_bytes = reader.zipf.read(rev_file.path)
+        revision_paths = {
+            file.path for file in reader.files if "revision" in file.path.lower()
+        }
+        revision_paths.update(
+            path
+            for path in reader.zipf.namelist()
+            if "revision" in path.lower()
+        )
+        for rev_path in sorted(revision_paths):
+            raw_bytes = reader.zipf.read(rev_path)
             raw_text = raw_bytes.decode("utf-8", errors="replace")
             findings.append(
                 _metadata_finding(
                     file_index=file_index,
-                    name=rev_file.path,
+                    name=rev_path,
                     value=raw_text,
                     category="revision",
                     raw_value=raw_text,
