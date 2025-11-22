@@ -32,7 +32,7 @@ Without `--merge`, each tool writes one JSON file per input file (still with a s
   "severity": "error | warning | info",         // fixed vocabulary
   "location": {
     "file_index": 0,                             // index into top-level files array
-    "story": "main | header--Section1--first | footer--Section2--odd | footnote--7 | endnote--3 | comment",
+    "story": "main | header--Section1--first | footer--Section2--odd | footnote--7 | endnote--3 | comment | metadata",
     "paragraph_index_start": 84,                 // inclusive, 0-based within the story
     "paragraph_index_end": 84,                   // inclusive; same as start for single-para hits
     "comment_id": "3"                            // only present for comment-type findings
@@ -52,10 +52,17 @@ Without `--merge`, each tool writes one JSON file per input file (still with a s
     "highlight_color": "yellow",                 // named highlight color
     "reference_number": "7",                     // footnotes
     "style_name": "Heading 1",                   // outline / terms
-    "raw_text": "[insert cap here]"              // brackets / todos
+    "raw_text": "[insert cap here]",             // brackets / todos
+    "property_category": "core",                // metadata: core | extended | custom | revision
+    "property_name": "last_author",             // metadata: raw property name
+    "property_value": "Jane Smith",             // metadata: raw property value (stringified)
+    "property_datatype": "string",              // metadata: raw datatype from the document
+    "property_revision_id": "5"                  // metadata: revision identifier when captured
   },
 }
 ```
+
+For metadata-only findings, `location.story` is `metadata` and both paragraph indexes are set to `0`. The metadata tool reports the raw property category, name, value, datatype, and (when present) the revision identifier without inference or reformatting.
 
 ### Fixed severity meanings
 
@@ -79,6 +86,7 @@ Without `--merge`, each tool writes one JSON file per input file (still with a s
 | manual_numbering   | outline                      |
 | heading_gap        | outline                      |
 | term_inconsistency | terms                        |
+| metadata           | metadata                     |
 
 ## Guarantees
 

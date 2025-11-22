@@ -31,21 +31,21 @@ These tools answer only those mechanical questions.
 
 ## Tools
 
-| command                     | purpose                                              | covers headers/footers/footnotes/comments |
-|-----------------------------|------------------------------------------------------|--------------------------------------------|
-| `lawdocx comments`          | modern threaded comments + resolved status           | Yes                                        |
-| `lawdocx changes`           | tracked changes + authors                            | Yes                                        |
-| `lawdocx brackets`          | [anything in square brackets]                        | Yes                                        |
-| `lawdocx todos`             | TODO / NTD / [?] etc.                                | Yes                                        |
-| `lawdocx boilerplate`       | DRAFT, law-firm footers, Page X of Y, [Date]…        | Yes                                        |
-| `lawdocx metadata`          | core/extended/custom properties, revision history   | –                                          |
-| `lawdocx footnotes`         | full footnote and endnote text                       | Yes                                        |
-| `lawdocx highlights`        | background highlighting                              | Yes                                        |
-| `lawdocx outline`           | heading hierarchy + manual numbering detection       | Yes                                        |
-| `lawdocx terms`             | inconsistent defined-term styling                    | Yes                                        |
-| `lawdocx audit`             | runs everything and optionally merges output         | Yes                                        |
+| command               | purpose                                                                  | covers headers/footers/footnotes/comments |
+|-----------------------|--------------------------------------------------------------------------|-------------------------------------------|
+| `lawdocx comments`    | modern threaded comments + resolved status                               | Yes |
+| `lawdocx changes`     | tracked changes + authors                                                | Yes |
+| `lawdocx brackets`    | [anything in square brackets]                                            | Yes |
+| `lawdocx todos`       | TODO / NTD / [?] etc.                                                    | Yes |
+| `lawdocx boilerplate` | DRAFT, law-firm footers, Page X of Y, [Date]…                            | Yes |
+| `lawdocx metadata`    | core, extended, and custom properties plus revision history (docx2python + lxml) | – |
+| `lawdocx footnotes`   | full footnote and endnote text                                           | Yes |
+| `lawdocx highlights`  | background highlighting                                                  | Yes |
+| `lawdocx outline`     | heading hierarchy + manual numbering detection                           | Yes |
+| `lawdocx terms`       | inconsistent defined-term styling                                        | Yes |
+| `lawdocx audit`       | runs everything and optionally merges output                             | Yes |
 
-Every tool works on a single file, multiple files, globs, or stdin.
+Every tool works on a single file, multiple files, globs, or stdin and writes the same JSON schema to stdout. Each one surfaces the raw values and locations it finds, without inference or paraphrasing.
 
 ## Example
 
