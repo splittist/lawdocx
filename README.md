@@ -19,15 +19,15 @@ A small, deliberately simple collection of command-line tools that extract the t
 - footnotes and endnotes (full text)  
 - text highlighting  
 - heading hierarchy and manual numbering problems  
-- inconsistent defined-term formatting  
+- inconsistent defined-terms  
 
-Each tool reads one or more .docx files and writes clean, predictable JSON. That JSON is designed to be consumed directly by LLMs, scripts, or pandas – no parsing surprises, no opinions baked in.
+Each tool reads one or more .docx files and writes clean, predictable JSON. That JSON is designed to be consumed directly by LLMs, scripts, or pandas.
 
 ## Why this exists
 
 Commercial contract-review platforms are excellent at deep analysis but are expensive and sometimes over-confident. The simple mechanical questions (“are there still comments/brackets/boilerplate?”) are often answered badly or not at all.
 
-These tools answer only those mechanical questions, and they answer them completely and correctly on real-world 2023–2025 BigLaw Word files.
+These tools answer only those mechanical questions.
 
 ## Tools
 
