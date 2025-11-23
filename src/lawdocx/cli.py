@@ -2,8 +2,7 @@
 
 import click
 
-from lawdocx import __version__
-from lawdocx import io_utils
+from lawdocx import __version__, io_utils
 from lawdocx.metadata import run_metadata
 
 
@@ -53,8 +52,8 @@ def info(input_file):
 @click.option(
     "--output",
     "-o",
-    type=click.File("w"),
-    default="-",
+    type=click.Path(),
+    default=None,
     show_default="stdout",
     help="Output file path or '-' for stdout.",
 )

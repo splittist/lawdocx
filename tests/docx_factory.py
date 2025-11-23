@@ -1,10 +1,9 @@
 """Helpers for building DOCX fixtures on the fly without storing binaries."""
 from __future__ import annotations
 
-from pathlib import Path
 import textwrap
 import zipfile
-
+from pathlib import Path
 
 CORE_XML = textwrap.dedent(
     """
