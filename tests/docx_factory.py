@@ -451,7 +451,21 @@ def create_comments_docx(base_dir: Path, name: str) -> Path:
         <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
         <w:document xmlns:w="{WORD_NAMESPACE}">
           <w:body>
-            <w:p><w:r><w:t>Body with comments</w:t></w:r></w:p>
+            <w:p>
+              <w:r><w:t>Body with </w:t></w:r>
+              <w:commentRangeStart w:id="1" />
+              <w:r><w:t>parent range</w:t></w:r>
+              <w:commentRangeEnd w:id="1" />
+              <w:r><w:commentReference w:id="1"/></w:r>
+            </w:p>
+            <w:p>
+              <w:r><w:t>More text before </w:t></w:r>
+              <w:commentRangeStart w:id="2" />
+              <w:r><w:t>child range</w:t></w:r>
+              <w:commentRangeEnd w:id="2" />
+              <w:r><w:t> after comment</w:t></w:r>
+              <w:r><w:commentReference w:id="2"/></w:r>
+            </w:p>
           </w:body>
         </w:document>
         """
@@ -461,8 +475,9 @@ def create_comments_docx(base_dir: Path, name: str) -> Path:
         f"""
         <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
         <w:comments xmlns:w="{WORD_NAMESPACE}" xmlns:w14="{W14_NAMESPACE}">
-          <w:comment w:id="1" w:author="Alice" w:date="2024-01-02T10:00:00Z">
+          <w:comment w:id="1" w:author="Alice" w:initials="AL" w:date="2024-01-02T10:00:00Z">
             <w:p w14:paraId="11111111" w14:textId="AAAA1111"><w:r><w:t>Parent comment</w:t></w:r></w:p>
+            <w:p w14:paraId="33333333" w14:textId="CCCC3333"><w:r><w:t>Second paragraph</w:t></w:r></w:p>
           </w:comment>
           <w:comment w:id="2" w:author="Bob">
             <w:p w14:paraId="22222222" w14:textId="BBBB2222"><w:r><w:t>Child comment</w:t></w:r></w:p>
