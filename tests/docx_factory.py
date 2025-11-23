@@ -10,6 +10,8 @@ WORD_NAMESPACE = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 RELATIONSHIP_NAMESPACE = (
     "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
 )
+W14_NAMESPACE = "http://schemas.microsoft.com/office/word/2010/wordml"
+W15_NAMESPACE = "http://schemas.microsoft.com/office/word/2012/wordml"
 
 CORE_XML = textwrap.dedent(
     """
@@ -285,6 +287,25 @@ def _content_types_for_changes() -> str:
     ).strip().format(override_str="\n".join(overrides))
 
 
+def _content_types_with_comments() -> str:
+    overrides = [
+        "  <Override PartName=\"/word/document.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml\"/>",
+        "  <Override PartName=\"/word/comments.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.comments+xml\"/>",
+        "  <Override PartName=\"/word/commentsExtended.xml\" ContentType=\"application/vnd.ms-word.commentsExtended+xml\"/>",
+    ]
+
+    return textwrap.dedent(
+        """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+          <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+          <Default Extension="xml" ContentType="application/xml"/>
+        {override_str}
+        </Types>
+        """
+    ).strip().format(override_str="\n".join(overrides))
+
+
 def create_metadata_docx(
     base_dir: Path,
     name: str,
@@ -416,6 +437,57 @@ def create_notes_docx(
         zf.writestr("word/_rels/document.xml.rels", DOCUMENT_RELS_WITH_NOTES)
         zf.writestr("word/footnotes.xml", footnotes_xml)
         zf.writestr("word/endnotes.xml", endnotes_xml)
+
+    return path
+
+
+def create_comments_docx(base_dir: Path, name: str) -> Path:
+    """Create a DOCX file containing threaded/resolved comments."""
+
+    path = base_dir / name
+
+    document_body = textwrap.dedent(
+        f"""
+        <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+        <w:document xmlns:w="{WORD_NAMESPACE}">
+          <w:body>
+            <w:p><w:r><w:t>Body with comments</w:t></w:r></w:p>
+          </w:body>
+        </w:document>
+        """
+    ).strip()
+
+    comments_xml = textwrap.dedent(
+        f"""
+        <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+        <w:comments xmlns:w="{WORD_NAMESPACE}" xmlns:w14="{W14_NAMESPACE}">
+          <w:comment w:id="1" w:author="Alice" w:date="2024-01-02T10:00:00Z">
+            <w:p w14:paraId="11111111" w14:textId="AAAA1111"><w:r><w:t>Parent comment</w:t></w:r></w:p>
+          </w:comment>
+          <w:comment w:id="2" w:author="Bob">
+            <w:p w14:paraId="22222222" w14:textId="BBBB2222"><w:r><w:t>Child comment</w:t></w:r></w:p>
+          </w:comment>
+        </w:comments>
+        """
+    ).strip()
+
+    comments_extended_xml = textwrap.dedent(
+        f"""
+        <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+        <w15:commentsEx xmlns:w15="{W15_NAMESPACE}">
+          <w15:commentEx w15:paraId="11111111" w15:done="1" />
+          <w15:commentEx w15:paraId="22222222" w15:paraIdParent="11111111" />
+        </w15:commentsEx>
+        """
+    ).strip()
+
+    with zipfile.ZipFile(path, "w") as zf:
+        zf.writestr("[Content_Types].xml", _content_types_with_comments())
+        zf.writestr("_rels/.rels", RELATIONSHIPS_WITH_DOCUMENT)
+        zf.writestr("word/document.xml", document_body)
+        zf.writestr("word/_rels/document.xml.rels", EMPTY_RELS_XML)
+        zf.writestr("word/comments.xml", comments_xml)
+        zf.writestr("word/commentsExtended.xml", comments_extended_xml)
 
     return path
 
