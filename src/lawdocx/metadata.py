@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
 from tempfile import NamedTemporaryFile
 from typing import Iterable, List
 from uuid import uuid4
@@ -11,29 +10,8 @@ from docx2python import docx2python
 from lxml import etree
 
 from lawdocx.io_utils import InputSource
+from lawdocx.models import Finding
 from lawdocx.utils import build_envelope, dump_json_line, hash_bytes, utc_timestamp
-
-
-@dataclass
-class Finding:
-    """Simple representation of a finding object."""
-
-    id: str
-    type: str
-    severity: str
-    location: dict
-    context: dict
-    details: dict
-
-    def as_dict(self) -> dict:
-        return {
-            "id": self.id,
-            "type": self.type,
-            "severity": self.severity,
-            "location": self.location,
-            "context": self.context,
-            "details": self.details,
-        }
 
 
 def _base_location(file_index: int) -> dict:
