@@ -172,6 +172,35 @@ RELATIONSHIPS_WITH_DOCUMENT = textwrap.dedent(
     """
 ).strip()
 
+CONTENT_TYPES_WITH_STYLES = textwrap.dedent(
+    """
+    <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+    <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+      <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+      <Default Extension="xml" ContentType="application/xml"/>
+      <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+      <Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>
+    </Types>
+    """
+).strip()
+
+STYLES_XML = textwrap.dedent(
+    f"""
+    <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+    <w:styles xmlns:w="{WORD_NAMESPACE}">
+      <w:style w:type="paragraph" w:styleId="Heading1">
+        <w:name w:val="Heading 1"/>
+      </w:style>
+      <w:style w:type="paragraph" w:styleId="BodyText">
+        <w:name w:val="Body Text"/>
+      </w:style>
+      <w:style w:type="paragraph" w:styleId="ArticleTitle">
+        <w:name w:val="Article Heading"/>
+      </w:style>
+    </w:styles>
+    """
+).strip()
+
 DOCUMENT_RELS_WITH_NOTES = textwrap.dedent(
     """
     <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -375,6 +404,53 @@ def create_boilerplate_docx(
         zf.writestr("word/_rels/document.xml.rels", DOCUMENT_RELS_WITH_HEADER_FOOTER)
         zf.writestr("word/header1.xml", HEADER_XML.format(header_text=escape(header_text)))
         zf.writestr("word/footer1.xml", FOOTER_XML.format(footer_text=escape(footer_text)))
+
+    return path
+
+
+def create_outline_docx(base_dir: Path, name: str) -> Path:
+    """Create a DOCX file with paragraphs exercising numbering detection."""
+
+    path = base_dir / name
+
+    document_body = textwrap.dedent(
+        f"""
+        <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+        <w:document xmlns:w="{WORD_NAMESPACE}" xmlns:r="{RELATIONSHIP_NAMESPACE}">
+          <w:body>
+            <w:p>
+              <w:pPr><w:pStyle w:val="BodyText"/></w:pPr>
+              <w:r><w:t>1. Manual number</w:t></w:r>
+            </w:p>
+            <w:p>
+              <w:pPr><w:pStyle w:val="Heading1"/></w:pPr>
+              <w:r><w:t>(a) Heading example</w:t></w:r>
+            </w:p>
+            <w:p>
+              <w:pPr>
+                <w:pStyle w:val="BodyText"/>
+                <w:numPr><w:ilvl w:val="0"/><w:numId w:val="1"/></w:numPr>
+              </w:pPr>
+              <w:r><w:t>Auto numbered paragraph</w:t></w:r>
+            </w:p>
+            <w:p>
+              <w:pPr>
+                <w:pStyle w:val="ArticleTitle"/>
+                <w:numPr><w:ilvl w:val="1"/><w:numId w:val="2"/></w:numPr>
+              </w:pPr>
+              <w:r><w:t>Section heading</w:t></w:r>
+            </w:p>
+          </w:body>
+        </w:document>
+        """
+    ).strip()
+
+    with zipfile.ZipFile(path, "w") as zf:
+        zf.writestr("[Content_Types].xml", CONTENT_TYPES_WITH_STYLES)
+        zf.writestr("_rels/.rels", RELATIONSHIPS_WITH_DOCUMENT)
+        zf.writestr("word/document.xml", document_body)
+        zf.writestr("word/styles.xml", STYLES_XML)
+        zf.writestr("word/_rels/document.xml.rels", EMPTY_RELS_XML)
 
     return path
 
