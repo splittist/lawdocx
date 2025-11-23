@@ -191,6 +191,18 @@ DOCUMENT_RELS_WITH_HEADER_FOOTER = textwrap.dedent(
     """
 ).strip()
 
+DOCUMENT_RELS_WITH_CHANGES = textwrap.dedent(
+    """
+    <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+    <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+      <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/header" Target="header1.xml"/>
+      <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/footer" Target="footer1.xml"/>
+      <Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/footnotes" Target="footnotes.xml"/>
+      <Relationship Id="rId4" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/endnotes" Target="endnotes.xml"/>
+    </Relationships>
+    """
+).strip()
+
 
 def _content_types_xml(include_custom: bool) -> str:
     overrides = [
@@ -240,6 +252,27 @@ def _content_types_with_notes() -> str:
         "  <Override PartName=\"/word/footnotes.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.footnotes+xml\"/>",
         "  <Override PartName=\"/word/endnotes.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.endnotes+xml\"/>",
     ]
+    return textwrap.dedent(
+        """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+          <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+          <Default Extension="xml" ContentType="application/xml"/>
+        {override_str}
+        </Types>
+        """
+    ).strip().format(override_str="\n".join(overrides))
+
+
+def _content_types_for_changes() -> str:
+    overrides = [
+        "  <Override PartName=\"/word/document.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml\"/>",
+        "  <Override PartName=\"/word/header1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.header+xml\"/>",
+        "  <Override PartName=\"/word/footer1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.footer+xml\"/>",
+        "  <Override PartName=\"/word/footnotes.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.footnotes+xml\"/>",
+        "  <Override PartName=\"/word/endnotes.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.endnotes+xml\"/>",
+    ]
+
     return textwrap.dedent(
         """
         <?xml version="1.0" encoding="UTF-8"?>
@@ -381,6 +414,90 @@ def create_notes_docx(
         zf.writestr("_rels/.rels", RELATIONSHIPS_WITH_DOCUMENT)
         zf.writestr("word/document.xml", document_body)
         zf.writestr("word/_rels/document.xml.rels", DOCUMENT_RELS_WITH_NOTES)
+        zf.writestr("word/footnotes.xml", footnotes_xml)
+        zf.writestr("word/endnotes.xml", endnotes_xml)
+
+    return path
+
+
+def create_changes_docx(base_dir: Path, name: str) -> Path:
+    """Create a DOCX file containing tracked changes across stories."""
+
+    path = base_dir / name
+
+    document_body = textwrap.dedent(
+        f"""
+        <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+        <w:document xmlns:w="{WORD_NAMESPACE}" xmlns:r="{RELATIONSHIP_NAMESPACE}">
+          <w:body>
+            <w:p>
+              <w:r><w:t>Base </w:t></w:r>
+              <w:ins w:author="Alice" w:date="2024-01-02T10:00:00Z"><w:r><w:t>inserted</w:t></w:r></w:ins>
+              <w:r><w:t> text</w:t></w:r>
+            </w:p>
+            <w:p>
+              <w:r><w:t>Footnote story</w:t></w:r>
+              <w:r><w:footnoteReference w:id="1"/></w:r>
+            </w:p>
+            <w:p>
+              <w:r><w:t>Endnote story</w:t></w:r>
+              <w:r><w:endnoteReference w:id="2"/></w:r>
+            </w:p>
+            <w:sectPr>
+              <w:headerReference w:type="default" r:id="rId1"/>
+              <w:footerReference w:type="default" r:id="rId2"/>
+            </w:sectPr>
+          </w:body>
+        </w:document>
+        """
+    ).strip()
+
+    header_xml = textwrap.dedent(
+        f"""
+        <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+        <w:hdr xmlns:w="{WORD_NAMESPACE}" xmlns:r="{RELATIONSHIP_NAMESPACE}">
+          <w:p><w:del w:author="Bob" w:date="2024-01-03T12:00:00Z"><w:r><w:delText>Header change</w:delText></w:r></w:del></w:p>
+        </w:hdr>
+        """
+    ).strip()
+
+    footer_xml = textwrap.dedent(
+        f"""
+        <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+        <w:ftr xmlns:w="{WORD_NAMESPACE}" xmlns:r="{RELATIONSHIP_NAMESPACE}">
+          <w:p><w:moveFrom w:author="Cara" w:date="2024-01-04T09:00:00Z"><w:r><w:t>Moved away</w:t></w:r></w:moveFrom></w:p>
+        </w:ftr>
+        """
+    ).strip()
+
+    footnotes_xml = textwrap.dedent(
+        f"""
+        <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+        <w:footnotes xmlns:w="{WORD_NAMESPACE}">
+          <w:footnote w:id="-1"><w:p><w:r><w:separator/></w:r></w:p></w:footnote>
+          <w:footnote w:id="0"><w:p><w:r><w:continuationSeparator/></w:r></w:p></w:footnote>
+          <w:footnote w:id="1"><w:p><w:moveTo w:author="Dan" w:date="2024-01-05T08:00:00Z"><w:r><w:t>Moved here</w:t></w:r></w:moveTo></w:p></w:footnote>
+        </w:footnotes>
+        """
+    ).strip()
+
+    endnotes_xml = textwrap.dedent(
+        f"""
+        <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+        <w:endnotes xmlns:w="{WORD_NAMESPACE}">
+          <w:endnote w:id="0"><w:p><w:r><w:separator/></w:r></w:p></w:endnote>
+          <w:endnote w:id="2"><w:p><w:ins w:author="Eve" w:date="2024-01-06T14:00:00Z"><w:r><w:t>Endnote insert</w:t></w:r></w:ins></w:p></w:endnote>
+        </w:endnotes>
+        """
+    ).strip()
+
+    with zipfile.ZipFile(path, "w") as zf:
+        zf.writestr("[Content_Types].xml", _content_types_for_changes())
+        zf.writestr("_rels/.rels", RELATIONSHIPS_WITH_DOCUMENT)
+        zf.writestr("word/document.xml", document_body)
+        zf.writestr("word/_rels/document.xml.rels", DOCUMENT_RELS_WITH_CHANGES)
+        zf.writestr("word/header1.xml", header_xml)
+        zf.writestr("word/footer1.xml", footer_xml)
         zf.writestr("word/footnotes.xml", footnotes_xml)
         zf.writestr("word/endnotes.xml", endnotes_xml)
 
