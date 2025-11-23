@@ -67,6 +67,8 @@ def resolve_inputs(paths: Sequence[str], mode: str = "rb") -> InputList:
     if not resolved:
         raise click.ClickException("No input files provided")
 
+    resolved.sort(key=lambda source: source.path)
+
     return resolved
 
 

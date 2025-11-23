@@ -38,7 +38,7 @@ These tools answer only those mechanical questions.
 | `lawdocx brackets`    | [anything in square brackets]                                            | Yes |
 | `lawdocx todos`       | TODO / NTD / [?] etc.                                                    | Yes |
 | `lawdocx boilerplate` | DRAFT, law-firm footers, Page X of Y, [Date]…                            | Yes |
-| `lawdocx metadata`    | core, extended, and custom properties plus revision history (docx2python + lxml) | – |
+| `lawdocx metadata`    | core, extended, and custom properties plus custom XML part references (docx2python + lxml) | – |
 | `lawdocx footnotes`   | full footnote and endnote text                                           | Yes |
 | `lawdocx highlights`  | background highlighting                                                  | Yes |
 | `lawdocx outline`     | heading hierarchy + manual numbering detection                           | Yes |

@@ -61,20 +61,41 @@ DOCUMENT_XML = textwrap.dedent(
 ).strip()
 
 
-REVISION_XML = textwrap.dedent(
-    """
-    <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-    <revisions xmlns="http://example.com/revisions">
-      <entry>Reviewer edited paragraph</entry>
-    </revisions>
-    """
-).strip()
-
-
 EMPTY_RELS_XML = (
     "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n"
     "<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\"/>"
 )
+
+
+DOCUMENT_RELS_WITH_CUSTOM_XML = textwrap.dedent(
+    """
+    <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+    <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+      <Relationship Id="rId10" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/customXml" Target="../customXml/item1.xml"/>
+      <Relationship Id="rId11" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/customXml" Target="../customXml/item2.xml"/>
+    </Relationships>
+    """
+).strip()
+
+
+CUSTOM_XML_ITEM_ONE = textwrap.dedent(
+    """
+    <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+    <root>
+      <entry>Custom XML payload one</entry>
+    </root>
+    """
+).strip()
+
+
+CUSTOM_XML_ITEM_TWO = textwrap.dedent(
+    """
+    <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+    <root>
+      <entry>Custom XML payload two</entry>
+    </root>
+    """
+).strip()
 
 
 RELATIONSHIPS_XML = textwrap.dedent(
@@ -107,7 +128,6 @@ def _content_types_xml(include_custom: bool) -> str:
         "  <Override PartName=\"/word/document.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml\"/>",
         "  <Override PartName=\"/docProps/core.xml\" ContentType=\"application/vnd.openxmlformats-package.core-properties+xml\"/>",
         "  <Override PartName=\"/docProps/app.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.extended-properties+xml\"/>",
-        "  <Override PartName=\"/word/revisions/document.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml\"/>",
     ]
     if include_custom:
         overrides.append(
@@ -127,7 +147,13 @@ def _content_types_xml(include_custom: bool) -> str:
     ).strip()
 
 
-def create_metadata_docx(base_dir: Path, name: str, *, include_custom: bool = True) -> Path:
+def create_metadata_docx(
+    base_dir: Path,
+    name: str,
+    *,
+    include_custom: bool = True,
+    include_custom_xml: bool = True,
+) -> Path:
     """Create a minimal DOCX file with known metadata.
 
     The DOCX is built from plain XML parts to avoid committing binary fixtures.
@@ -135,6 +161,9 @@ def create_metadata_docx(base_dir: Path, name: str, *, include_custom: bool = Tr
 
     path = base_dir / name
     relationships = RELATIONSHIPS_XML if include_custom else RELATIONSHIPS_XML_NO_CUSTOM
+    document_relationships = (
+        DOCUMENT_RELS_WITH_CUSTOM_XML if include_custom_xml else EMPTY_RELS_XML
+    )
 
     with zipfile.ZipFile(path, "w") as zf:
         zf.writestr("[Content_Types].xml", _content_types_xml(include_custom))
@@ -144,7 +173,9 @@ def create_metadata_docx(base_dir: Path, name: str, *, include_custom: bool = Tr
         if include_custom:
             zf.writestr("docProps/custom.xml", CUSTOM_XML)
         zf.writestr("word/document.xml", DOCUMENT_XML)
-        zf.writestr("word/_rels/document.xml.rels", EMPTY_RELS_XML)
-        zf.writestr("word/revisions/document.xml", REVISION_XML)
+        zf.writestr("word/_rels/document.xml.rels", document_relationships)
+        if include_custom_xml:
+            zf.writestr("customXml/item1.xml", CUSTOM_XML_ITEM_ONE)
+            zf.writestr("customXml/item2.xml", CUSTOM_XML_ITEM_TWO)
 
     return path
