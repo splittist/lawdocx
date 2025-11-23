@@ -13,7 +13,15 @@ def test_main_help():
 
     assert result.exit_code == 0
     assert "Little tools for dealing with docx files" in result.output
-    for command in ["metadata", "boilerplate", "todos", "footnotes", "changes", "comments"]:
+    for command in [
+        "metadata",
+        "boilerplate",
+        "todos",
+        "footnotes",
+        "changes",
+        "comments",
+        "highlights",
+    ]:
         assert command in result.output
 
 
