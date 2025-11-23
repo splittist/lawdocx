@@ -19,7 +19,6 @@ A small, deliberately simple collection of command-line tools that extract the t
 - footnotes and endnotes (full text)  
 - text highlighting  
 - heading hierarchy and manual numbering problems  
-- inconsistent defined-terms  
 
 Each tool reads one or more .docx files and writes clean, predictable JSON. That JSON is designed to be consumed directly by LLMs, scripts, or pandas.
 
@@ -42,7 +41,6 @@ These tools answer only those mechanical questions.
 | `lawdocx footnotes`   | full footnote and endnote text                                           | Yes |
 | `lawdocx highlights`  | background highlighting                                                  | Yes |
 | `lawdocx outline`     | heading hierarchy + manual numbering detection                           | Yes |
-| `lawdocx terms`       | inconsistent defined-term styling                                        | Yes |
 | `lawdocx audit`       | runs everything and optionally merges output                             | Yes |
 
 Every tool works on a single file, multiple files, globs, or stdin and writes the same JSON schema to stdout. Each one surfaces the raw values and locations it finds, without inference or paraphrasing.

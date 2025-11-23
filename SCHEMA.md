@@ -52,7 +52,7 @@ Without `--merge`, each tool writes one JSON file per input file (still with a s
     "matched_pattern": "DRAFT",                  // boilerplate / todos
     "highlight_color": "yellow",                 // named highlight color
     "reference_number": "7",                     // footnotes
-    "style_name": "Heading 1",                   // outline / terms
+    "style_name": "Heading 1",                   // outline
     "raw_text": "[insert cap here]",             // brackets / todos
     "property_category": "core",                // metadata: core | extended | custom | revision
     "property_name": "last_author",             // metadata: raw property name
@@ -87,8 +87,7 @@ For comment findings, `paragraph_index_start` and `paragraph_index_end` refer to
 | footnote / endnote | footnotes                    |
 | highlight          | highlights                   |
 | manual_numbering   | outline                      |
-| heading_gap        | outline                      |
-| term_inconsistency | terms                        |
+| suspicious_numbering | outline                      |
 | metadata           | metadata                     |
 
 ## Guarantees
