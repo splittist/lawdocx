@@ -47,3 +47,27 @@ def dump_json_line(data: dict, output_handle: IO) -> None:
 
     json.dump(data, output_handle)
     output_handle.write("\n")
+
+
+def text_context(
+    text: str, start: int, end: int, *, window: int = 100, target_limit: int = 500
+) -> dict:
+    """Return a context dictionary describing text around a target span.
+
+    Parameters
+    ----------
+    text:
+        The full text body.
+    start, end:
+        The character offsets for the target span within ``text``.
+    window:
+        Number of characters to include before and after the target span.
+    target_limit:
+        Maximum number of characters to include from the target span itself.
+    """
+
+    return {
+        "before": text[max(0, start - window) : start],
+        "target": text[start:end][:target_limit],
+        "after": text[end : end + window],
+    }

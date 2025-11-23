@@ -170,6 +170,16 @@ RELATIONSHIPS_WITH_DOCUMENT = textwrap.dedent(
     """
 ).strip()
 
+DOCUMENT_RELS_WITH_NOTES = textwrap.dedent(
+    """
+    <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+    <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+      <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/footnotes" Target="footnotes.xml"/>
+      <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/endnotes" Target="endnotes.xml"/>
+    </Relationships>
+    """
+).strip()
+
 
 DOCUMENT_RELS_WITH_HEADER_FOOTER = textwrap.dedent(
     """
@@ -211,6 +221,24 @@ def _content_types_with_header_footer(paragraphs: list[str]) -> str:
         "  <Override PartName=\"/word/document.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml\"/>",
         "  <Override PartName=\"/word/header1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.header+xml\"/>",
         "  <Override PartName=\"/word/footer1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.footer+xml\"/>",
+    ]
+    return textwrap.dedent(
+        """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+          <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+          <Default Extension="xml" ContentType="application/xml"/>
+        {override_str}
+        </Types>
+        """
+    ).strip().format(override_str="\n".join(overrides))
+
+
+def _content_types_with_notes() -> str:
+    overrides = [
+        "  <Override PartName=\"/word/document.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml\"/>",
+        "  <Override PartName=\"/word/footnotes.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.footnotes+xml\"/>",
+        "  <Override PartName=\"/word/endnotes.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.endnotes+xml\"/>",
     ]
     return textwrap.dedent(
         """
@@ -293,5 +321,67 @@ def create_boilerplate_docx(
         zf.writestr("word/_rels/document.xml.rels", DOCUMENT_RELS_WITH_HEADER_FOOTER)
         zf.writestr("word/header1.xml", HEADER_XML.format(header_text=escape(header_text)))
         zf.writestr("word/footer1.xml", FOOTER_XML.format(footer_text=escape(footer_text)))
+
+    return path
+
+
+def create_notes_docx(
+    base_dir: Path,
+    name: str,
+    *,
+    footnote_text: str = "Footnote text",
+    endnote_text: str = "Endnote text",
+) -> Path:
+    """Create a DOCX file containing a footnote and endnote reference."""
+
+    path = base_dir / name
+
+    document_body = textwrap.dedent(
+        f"""
+        <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+        <w:document xmlns:w="{WORD_NAMESPACE}" xmlns:r="{RELATIONSHIP_NAMESPACE}">
+          <w:body>
+            <w:p>
+              <w:r><w:t>Body with footnote</w:t></w:r>
+              <w:r><w:footnoteReference w:id="1"/></w:r>
+              <w:r><w:t> continues.</w:t></w:r>
+            </w:p>
+            <w:p>
+              <w:r><w:t>Body with endnote</w:t></w:r>
+              <w:r><w:endnoteReference w:id="2"/></w:r>
+            </w:p>
+          </w:body>
+        </w:document>
+        """
+    ).strip()
+
+    footnotes_xml = textwrap.dedent(
+        f"""
+        <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+        <w:footnotes xmlns:w="{WORD_NAMESPACE}">
+          <w:footnote w:id="-1"><w:p><w:r><w:separator/></w:r></w:p></w:footnote>
+          <w:footnote w:id="0"><w:p><w:r><w:continuationSeparator/></w:r></w:p></w:footnote>
+          <w:footnote w:id="1"><w:p><w:r><w:t>{escape(footnote_text)}</w:t></w:r></w:p></w:footnote>
+        </w:footnotes>
+        """
+    ).strip()
+
+    endnotes_xml = textwrap.dedent(
+        f"""
+        <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+        <w:endnotes xmlns:w="{WORD_NAMESPACE}">
+          <w:endnote w:id="0"><w:p><w:r><w:separator/></w:r></w:p></w:endnote>
+          <w:endnote w:id="2"><w:p><w:r><w:t>{escape(endnote_text)}</w:t></w:r></w:p></w:endnote>
+        </w:endnotes>
+        """
+    ).strip()
+
+    with zipfile.ZipFile(path, "w") as zf:
+        zf.writestr("[Content_Types].xml", _content_types_with_notes())
+        zf.writestr("_rels/.rels", RELATIONSHIPS_WITH_DOCUMENT)
+        zf.writestr("word/document.xml", document_body)
+        zf.writestr("word/_rels/document.xml.rels", DOCUMENT_RELS_WITH_NOTES)
+        zf.writestr("word/footnotes.xml", footnotes_xml)
+        zf.writestr("word/endnotes.xml", endnotes_xml)
 
     return path
