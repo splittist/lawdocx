@@ -57,10 +57,13 @@ DEFAULT_BOILERPLATE = [
     r"~\$",
 ]
 
-def _base_location(file_index: int, story: str, paragraph_index: int) -> dict:
+def _base_location(
+    story: str, paragraph_index: int, section_number: int, header_type: str
+) -> dict:
     return {
-        "file_index": file_index,
         "story": story,
+        "section_number": section_number,
+        "header_type": header_type,
         "paragraph_index_start": paragraph_index,
         "paragraph_index_end": paragraph_index,
     }
@@ -74,12 +77,12 @@ def _context(text: str, start: int, end: int) -> dict:
     }
 
 
-def _error_finding(file_index: int, message: str) -> Finding:
+def _error_finding(message: str) -> Finding:
     return Finding(
         id=uuid4().hex[:8],
         type="boilerplate",
         severity="error",
-        location=_base_location(file_index, "header", 0),
+        location=_base_location("header", 0, 0, "unknown"),
         context={"before": "", "target": "", "after": ""},
         details={"category": "error", "message": message},
     )
@@ -112,30 +115,67 @@ def collect_boilerplate(
     try:
         content = docx2python(file_path, html=False)
     except Exception as exc:
-        return [_error_finding(file_index, f"Failed to open DOCX: {exc}")]
+        return [_error_finding(f"Failed to open DOCX: {exc}")]
 
     try:
-        sections = {
-            "header": _flatten(content.header),
-            "footer": _flatten(content.footer),
+        doc_file = content.docx_reader.file_of_type("officeDocument")
+        references: dict[tuple[str, str], list[dict[str, int | str]]] = {}
+        ns = {
+            "w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main",
+            "r": "http://schemas.openxmlformats.org/officeDocument/2006/relationships",
         }
 
-        for story, paragraphs in sections.items():
-            for para_index, paragraph in enumerate(paragraphs):
-                for pattern in compiled:
-                    for match in pattern.finditer(paragraph):
-                        findings.append(
-                            Finding(
-                                id=uuid4().hex[:8],
-                                type="boilerplate",
-                                severity="warning",
-                                location=_base_location(file_index, story, para_index),
-                                context=_context(paragraph, match.start(), match.end()),
-                                details={"matched_pattern": match.group(0)},
-                            )
-                        )
+        for section_number, sect in enumerate(
+            doc_file.root_element.findall(".//w:sectPr", namespaces=ns), start=1
+        ):
+            for story, ref_tag in (("header", "headerReference"), ("footer", "footerReference")):
+                for ref in sect.findall(f"w:{ref_tag}", namespaces=ns):
+                    rel_id = ref.get(f"{{{ns['r']}}}id")
+                    target = doc_file.rels.get(rel_id, "") if rel_id else ""
+                    if not target:
+                        continue
+
+                    target_path = (
+                        Path(doc_file.path).parent.joinpath(target).as_posix()
+                    )
+                    header_type = ref.get(f"{{{ns['w']}}}type", "default") or "default"
+                    references.setdefault((story, target_path), []).append(
+                        {"section_number": section_number, "header_type": header_type}
+                    )
+
+        for story in ("header", "footer"):
+            story_files = content.docx_reader.files_of_type(story)
+            for story_file in story_files:
+                paragraphs = _flatten(story_file.text)
+                reference_info = references.get((story, story_file.path))
+                if not reference_info:
+                    reference_info = [
+                        {"section_number": 1, "header_type": "default"}
+                    ]
+
+                for ref in reference_info:
+                    for para_index, paragraph in enumerate(paragraphs):
+                        for pattern in compiled:
+                            for match in pattern.finditer(paragraph):
+                                findings.append(
+                                    Finding(
+                                        id=uuid4().hex[:8],
+                                        type="boilerplate",
+                                        severity="warning",
+                                        location=_base_location(
+                                            story,
+                                            para_index,
+                                            int(ref["section_number"]),
+                                            str(ref["header_type"]),
+                                        ),
+                                        context=_context(
+                                            paragraph, match.start(), match.end()
+                                        ),
+                                        details={"matched_pattern": match.group(0)},
+                                    )
+                                )
     except Exception as exc:  # pragma: no cover - defensive
-        findings.append(_error_finding(file_index, f"Boilerplate scan failed: {exc}"))
+        findings.append(_error_finding(f"Boilerplate scan failed: {exc}"))
     finally:
         content.close()
 

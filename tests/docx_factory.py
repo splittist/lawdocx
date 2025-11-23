@@ -7,6 +7,9 @@ from pathlib import Path
 from xml.sax.saxutils import escape
 
 WORD_NAMESPACE = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+RELATIONSHIP_NAMESPACE = (
+    "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+)
 
 CORE_XML = textwrap.dedent(
     """
@@ -79,7 +82,7 @@ DOCUMENT_XML = textwrap.dedent(
 HEADER_XML = textwrap.dedent(
     f"""
     <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-    <w:hdr xmlns:w="{WORD_NAMESPACE}" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+    <w:hdr xmlns:w="{WORD_NAMESPACE}" xmlns:r="{RELATIONSHIP_NAMESPACE}">
       <w:p><w:r><w:t>{{header_text}}</w:t></w:r></w:p>
     </w:hdr>
     """
@@ -89,7 +92,7 @@ HEADER_XML = textwrap.dedent(
 FOOTER_XML = textwrap.dedent(
     f"""
     <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-    <w:ftr xmlns:w="{WORD_NAMESPACE}" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+    <w:ftr xmlns:w="{WORD_NAMESPACE}" xmlns:r="{RELATIONSHIP_NAMESPACE}">
       <w:p><w:r><w:t>{{footer_text}}</w:t></w:r></w:p>
     </w:ftr>
     """
@@ -271,9 +274,13 @@ def create_boilerplate_docx(
     document_body = textwrap.dedent(
         f"""
         <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-        <w:document xmlns:w="{WORD_NAMESPACE}">
+        <w:document xmlns:w="{WORD_NAMESPACE}" xmlns:r="{RELATIONSHIP_NAMESPACE}">
           <w:body>
         {_wrap_paragraphs(body_paragraphs)}
+            <w:sectPr>
+              <w:headerReference w:type="default" r:id="rId1"/>
+              <w:footerReference w:type="default" r:id="rId2"/>
+            </w:sectPr>
           </w:body>
         </w:document>
         """
