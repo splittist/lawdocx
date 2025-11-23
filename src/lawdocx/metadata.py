@@ -24,7 +24,6 @@ def _base_location() -> dict:
 
 def _metadata_finding(
     *,
-    file_index: int,
     name: str,
     value: str,
     category: str,
@@ -53,7 +52,7 @@ def _metadata_finding(
     )
 
 
-def _error_finding(file_index: int, message: str) -> Finding:
+def _error_finding(message: str) -> Finding:
     return Finding(
         id=uuid4().hex[:8],
         type="metadata",
@@ -65,14 +64,13 @@ def _error_finding(file_index: int, message: str) -> Finding:
 
 
 def _extract_simple_properties(
-    properties: dict[str, str | None], file_index: int, category: str
+    properties: dict[str, str | None], category: str
 ) -> list[Finding]:
     findings: list[Finding] = []
     for name, value in properties.items():
         value_str = "" if value is None else str(value)
         findings.append(
             _metadata_finding(
-                file_index=file_index,
                 name=name,
                 value=value_str,
                 category=category,
@@ -82,7 +80,7 @@ def _extract_simple_properties(
     return findings
 
 
-def _extract_extended_properties(files: list, file_index: int) -> list[Finding]:
+def _extract_extended_properties(files: list) -> list[Finding]:
     findings: list[Finding] = []
     for doc_file in files:
         try:
@@ -91,7 +89,6 @@ def _extract_extended_properties(files: list, file_index: int) -> list[Finding]:
                 value = child.text or ""
                 findings.append(
                     _metadata_finding(
-                        file_index=file_index,
                         name=name,
                         value=value,
                         category="extended",
@@ -99,11 +96,11 @@ def _extract_extended_properties(files: list, file_index: int) -> list[Finding]:
                     )
                 )
         except Exception as exc:  # pragma: no cover - defensive
-            findings.append(_error_finding(file_index, f"Extended properties failed: {exc}"))
+            findings.append(_error_finding(f"Extended properties failed: {exc}"))
     return findings
 
 
-def _extract_custom_properties(files: list, file_index: int) -> list[Finding]:
+def _extract_custom_properties(files: list) -> list[Finding]:
     findings: list[Finding] = []
     for doc_file in files:
         try:
@@ -118,7 +115,6 @@ def _extract_custom_properties(files: list, file_index: int) -> list[Finding]:
                     value = ""
                 findings.append(
                     _metadata_finding(
-                        file_index=file_index,
                         name=name,
                         value=value,
                         category="custom",
@@ -127,11 +123,11 @@ def _extract_custom_properties(files: list, file_index: int) -> list[Finding]:
                     )
                 )
         except Exception as exc:  # pragma: no cover - defensive
-            findings.append(_error_finding(file_index, f"Custom properties failed: {exc}"))
+            findings.append(_error_finding(f"Custom properties failed: {exc}"))
     return findings
 
 
-def _extract_custom_xml_files(reader, file_index: int) -> list[Finding]:
+def _extract_custom_xml_files(reader) -> list[Finding]:
     custom_xml_rel_type = (
         "http://schemas.openxmlformats.org/officeDocument/2006/relationships/customXml"
     )
@@ -155,7 +151,6 @@ def _extract_custom_xml_files(reader, file_index: int) -> list[Finding]:
         summary = f"{count} custom XML part(s) referenced"
         return [
             _metadata_finding(
-                file_index=file_index,
                 name="customXmlParts",
                 value=summary,
                 category="custom-xml",
@@ -169,7 +164,6 @@ def _extract_custom_xml_files(reader, file_index: int) -> list[Finding]:
     except KeyError:
         return [
             _metadata_finding(
-                file_index=file_index,
                 name="customXmlParts",
                 value="0 custom XML part(s) referenced",
                 category="custom-xml",
@@ -178,15 +172,15 @@ def _extract_custom_xml_files(reader, file_index: int) -> list[Finding]:
             )
         ]
     except Exception as exc:  # pragma: no cover - defensive
-        return [_error_finding(file_index, f"Custom XML detection failed: {exc}")]
+        return [_error_finding(f"Custom XML detection failed: {exc}")]
 
 
-def collect_metadata(file_path: str, file_index: int = 0) -> list[Finding]:
+def collect_metadata(file_path: str) -> list[Finding]:
     """Extract metadata from a DOCX file.
 
     The ``collect_*`` helpers form the minimal interface for tool modules: they
-    accept a path to the working file (plus an optional ``file_index`` when
-    merging results) and return a list of serializable finding objects.
+    accept a path to the working file and return a list of serializable finding
+    objects.
     Keeping this surface small helps future tools stay well under the
     150-line-per-module guideline.
     """
@@ -195,21 +189,21 @@ def collect_metadata(file_path: str, file_index: int = 0) -> list[Finding]:
     try:
         content = docx2python(file_path)
     except Exception as exc:
-        return [_error_finding(file_index, f"Failed to open DOCX: {exc}")]
+        return [_error_finding(f"Failed to open DOCX: {exc}")]
 
     try:
         findings.extend(
-            _extract_simple_properties(content.core_properties, file_index, "core")
+            _extract_simple_properties(content.core_properties, "core")
         )
 
         extended_files = content.docx_reader.files_of_type("extended-properties")
-        findings.extend(_extract_extended_properties(extended_files, file_index))
+        findings.extend(_extract_extended_properties(extended_files))
 
         custom_files = content.docx_reader.files_of_type("custom-properties")
-        findings.extend(_extract_custom_properties(custom_files, file_index))
-        findings.extend(_extract_custom_xml_files(content.docx_reader, file_index))
+        findings.extend(_extract_custom_properties(custom_files))
+        findings.extend(_extract_custom_xml_files(content.docx_reader))
     except Exception as exc:  # pragma: no cover - defensive
-        findings.append(_error_finding(file_index, f"Metadata extraction failed: {exc}"))
+        findings.append(_error_finding(f"Metadata extraction failed: {exc}"))
     finally:
         content.close()
 
@@ -229,7 +223,7 @@ def run_metadata(inputs: Iterable[InputSource], merge: bool, output_handle) -> N
     generated_at = utc_timestamp()
     merged_files: List[dict] = []
 
-    for file_index, source in enumerate(inputs):
+    for source in inputs:
         data = source.handle.read()
         sha256 = hash_bytes(data)
 
@@ -242,7 +236,7 @@ def run_metadata(inputs: Iterable[InputSource], merge: bool, output_handle) -> N
         else:
             target_path = source.path
 
-        findings = collect_metadata(target_path, file_index if merge else 0)
+        findings = collect_metadata(target_path)
 
         file_entry = {
             "path": source.display_name,

@@ -4,6 +4,7 @@ import click
 
 from lawdocx import __version__, io_utils
 from lawdocx.boilerplate import run_boilerplate
+from lawdocx.brackets import run_brackets
 from lawdocx.comments import run_comments
 from lawdocx.changes import run_changes
 from lawdocx.highlights import run_highlights
@@ -72,6 +73,41 @@ def comments(paths, output, merge):
 
     try:
         run_comments(inputs, merge, output_handle)
+    finally:
+        if should_close:
+            output_handle.close()
+        io_utils.close_inputs(inputs)
+
+
+@main.command()
+@click.argument("paths", nargs=-1, required=True)
+@click.option(
+    "--output",
+    "-o",
+    type=click.Path(),
+    default=None,
+    show_default="stdout",
+    help="Output file path or '-' for stdout.",
+)
+@click.option(
+    "--merge",
+    is_flag=True,
+    help="Combine bracket findings from multiple files into a single envelope.",
+)
+@click.option(
+    "--pattern",
+    "-p",
+    multiple=True,
+    help="Regex pattern to match (may be repeated). Defaults to balanced square brackets.",
+)
+def brackets(paths, output, merge, pattern):
+    """Detect bracketed text (or custom regex matches) in DOCX files."""
+
+    inputs = io_utils.resolve_inputs(paths, mode="rb")
+    output_handle, should_close = io_utils.resolve_output_handle(output, mode="w")
+
+    try:
+        run_brackets(inputs, merge, output_handle, patterns=pattern or None)
     finally:
         if should_close:
             output_handle.close()

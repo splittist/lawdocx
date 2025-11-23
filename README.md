@@ -47,6 +47,8 @@ These tools answer only those mechanical questions.
 
 Every tool works on a single file, multiple files, globs, or stdin and writes the same JSON schema to stdout. Each one surfaces the raw values and locations it finds, without inference or paraphrasing.
 
+The `brackets` command defaults to balanced square brackets but accepts repeated `--pattern/-p` regexes for custom searches, including multi-paragraph matches.
+
 The comments tool extracts the full comment text (including multiple paragraphs and initials), links threaded replies, and reports the exact body text span between matching `w:commentRangeStart`/`w:commentRangeEnd` markers with surrounding context.
 
 ## Example

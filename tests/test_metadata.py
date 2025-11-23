@@ -39,7 +39,7 @@ def test_collect_metadata_includes_all_categories(tmp_path):
         "customXml/item1.xml",
         "customXml/item2.xml",
     ]
-    assert all(f["location"]["file_index"] == 0 for f in findings)
+    assert all("file_index" not in f["location"] for f in findings)
 
 
 def test_collect_metadata_gracefully_handles_missing_custom_props(tmp_path):
