@@ -20,8 +20,22 @@ def test_collect_comments_with_extended_data(tmp_path):
 
     assert parent["details"]["resolved"] is True
     assert parent["details"]["author"] == "Alice"
+    assert parent["details"]["initials"] == "AL"
+    assert parent["details"]["comment_text"] == "Parent comment\nSecond paragraph"
+    assert parent["location"]["paragraph_index_start"] == 0
+    assert parent["location"]["paragraph_index_end"] == 1
+    assert parent["context"]["target"] == "parent range"
+    assert parent["context"]["before"].endswith("Body with ")
+    assert parent["context"]["after"].startswith("")
+
     assert child["details"].get("parent_comment_id") == "1"
     assert child["details"]["resolved"] is False
+    assert child["details"]["comment_text"] == "Child comment"
+    assert child["location"]["paragraph_index_start"] == 0
+    assert child["location"]["paragraph_index_end"] == 0
+    assert child["context"]["target"] == "child range"
+    assert "More text before" in child["context"]["before"]
+    assert child["context"]["after"].startswith(" after comment")
 
 
 def test_run_comments_emits_envelope(tmp_path):

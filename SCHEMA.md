@@ -46,6 +46,8 @@ Without `--merge`, each tool writes one JSON file per input file (still with a s
     "author": "john.doe@lawfirm.com",            // comments, changes
     "date": "2025-11-15T10:22:00Z",               // ISO-8601 when available
     "resolved": false,                           // boolean for comments
+    "comment_text": "Comment spanning multiple\nparagraphs", // full comment text with newlines between paragraphs
+    "initials": "AB",                            // initials for comments when provided
     "inserted_text": "material",                 // changes
     "deleted_text": "without cause",             // changes
     "matched_pattern": "DRAFT",                  // boilerplate / todos
@@ -63,6 +65,8 @@ Without `--merge`, each tool writes one JSON file per input file (still with a s
 ```
 
 For metadata-only findings, `location.story` is `metadata` and both paragraph indexes are set to `0`. The metadata tool reports the raw property category, name, value, datatype, and (when present) the revision identifier without inference or reformatting.
+
+For comment findings, `paragraph_index_start` and `paragraph_index_end` refer to the paragraph numbers inside the comment text itself (0-based). The text in `context.target` comes from the main document story between the matching `w:commentRangeStart`/`w:commentRangeEnd` markers, truncated to 500 characters when needed, with `context.before` and `context.after` drawn from neighbouring body text.
 
 ### Fixed severity meanings
 

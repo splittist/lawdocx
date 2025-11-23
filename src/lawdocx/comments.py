@@ -24,11 +24,16 @@ NS = {
 }
 
 
-def _base_location(comment_index: int, file_index: int | None, comment_id: str | None) -> dict:
+def _base_location(
+    paragraph_start: int,
+    paragraph_end: int,
+    file_index: int | None,
+    comment_id: str | None,
+) -> dict:
     location = {
         "story": "comment",
-        "paragraph_index_start": comment_index,
-        "paragraph_index_end": comment_index,
+        "paragraph_index_start": paragraph_start,
+        "paragraph_index_end": paragraph_end,
     }
     if file_index is not None:
         location["file_index"] = file_index
@@ -42,7 +47,7 @@ def _error_finding(file_index: int | None, message: str) -> Finding:
         id=uuid4().hex[:8],
         type="comment",
         severity="error",
-        location=_base_location(0, file_index, None),
+        location=_base_location(0, 0, file_index, None),
         context={"before": "", "target": "", "after": ""},
         details={"category": "error", "message": message},
     )
@@ -56,16 +61,51 @@ def _paragraph_text(paragraph: etree._Element) -> str:
     return "".join(texts)
 
 
-def _comment_text(comment_elem: etree._Element) -> tuple[str, str | None]:
+def _comment_paragraphs(comment_elem: etree._Element) -> tuple[list[str], list[str]]:
     paragraphs = comment_elem.findall(".//w:p", namespaces=NS)
     para_texts: list[str] = []
-    last_para_id: str | None = None
+    para_ids: list[str] = []
 
     for paragraph in paragraphs:
         para_texts.append(_paragraph_text(paragraph))
-        last_para_id = paragraph.get(f"{{{W14_NAMESPACE}}}paraId", last_para_id)
+        para_id = paragraph.get(f"{{{W14_NAMESPACE}}}paraId")
+        if para_id:
+            para_ids.append(para_id)
 
-    return "\n".join(para_texts), last_para_id
+    return para_texts, para_ids
+
+
+def _scan_body_comment_ranges(document_xml: bytes) -> tuple[str, dict[str, dict[str, int]]]:
+    root = etree.fromstring(document_xml)
+    text_parts: list[str] = []
+    open_ranges: dict[str, int] = {}
+    ranges: dict[str, dict[str, int]] = {}
+    current_length = 0
+
+    def _walk(node: etree._Element) -> None:
+        nonlocal current_length
+        local_name = etree.QName(node).localname
+
+        if local_name in {"commentRangeStart", "commentRangeEnd"}:
+            comment_id = node.get(f"{{{WORD_NAMESPACE}}}id")
+            if comment_id:
+                if local_name == "commentRangeStart":
+                    open_ranges[comment_id] = current_length
+                else:
+                    start = open_ranges.pop(comment_id, None)
+                    if start is not None:
+                        ranges[comment_id] = {"start": start, "end": current_length}
+
+        if local_name in {"t", "delText"}:
+            value = node.text or ""
+            text_parts.append(value)
+            current_length += len(value)
+
+        for child in node:
+            _walk(child)
+
+    _walk(root)
+    return "".join(text_parts), ranges
 
 
 def _parse_comments_extended(zipf: zipfile.ZipFile) -> dict[str, dict]:
@@ -105,6 +145,13 @@ def collect_comments(
             except KeyError:
                 return findings
 
+            try:
+                document_xml = zf.read("word/document.xml")
+                body_text, range_map = _scan_body_comment_ranges(document_xml)
+            except Exception:
+                body_text = ""
+                range_map = {}
+
             extended_map = _parse_comments_extended(zf)
     except Exception as exc:  # pragma: no cover - defensive
         return [_error_finding(file_index, f"Failed to open DOCX: {exc}")]
@@ -114,29 +161,42 @@ def collect_comments(
         para_to_comment_id: dict[str, str] = {}
 
         comments = root.findall(".//w:comment", namespaces=NS)
-        for index, comment in enumerate(comments):
+        for comment in comments:
             comment_id = comment.get(f"{{{WORD_NAMESPACE}}}id")
             author = comment.get(f"{{{WORD_NAMESPACE}}}author")
             date = comment.get(f"{{{WORD_NAMESPACE}}}date")
-            comment_text, last_para_id = _comment_text(comment)
+            comment_paragraphs, para_ids = _comment_paragraphs(comment)
+            comment_text = "\n".join(comment_paragraphs)
+            paragraph_start = 0 if comment_paragraphs else 0
+            paragraph_end = len(comment_paragraphs) - 1 if comment_paragraphs else 0
 
-            if last_para_id and comment_id:
-                para_to_comment_id[last_para_id] = comment_id
+            for para_id in para_ids:
+                if comment_id:
+                    para_to_comment_id[para_id] = comment_id
 
-            extended = extended_map.get(last_para_id or "", {})
+            extended = next((extended_map[id_] for id_ in para_ids if id_ in extended_map), {})
             resolved = bool(extended.get("done")) if extended.get("done") is not None else False
             parent_comment_id = None
             parent_para_id = extended.get("parent_para_id")
             if parent_para_id:
                 parent_comment_id = para_to_comment_id.get(parent_para_id)
 
-            details = {"resolved": resolved}
+            details = {"resolved": resolved, "comment_text": comment_text}
             if author:
                 details["author"] = author
+            initials = comment.get(f"{{{WORD_NAMESPACE}}}initials")
+            if initials:
+                details["initials"] = initials
             if date:
                 details["date"] = date
             if parent_comment_id:
                 details["parent_comment_id"] = parent_comment_id
+
+            if comment_id and comment_id in range_map and body_text:
+                span = range_map[comment_id]
+                context = text_context(body_text, span["start"], span["end"])
+            else:
+                context = text_context(comment_text, 0, len(comment_text))
 
             findings.append(
                 Finding(
@@ -144,10 +204,10 @@ def collect_comments(
                     type="comment",
                     severity="info",
                     location={
-                        **_base_location(index, file_index, comment_id),
+                        **_base_location(paragraph_start, paragraph_end, file_index, comment_id),
                         "file_path": location_path,
                     },
-                    context=text_context(comment_text, 0, len(comment_text)),
+                    context=context,
                     details=details,
                 )
             )
