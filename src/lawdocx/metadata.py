@@ -14,9 +14,8 @@ from lawdocx.models import Finding
 from lawdocx.utils import build_envelope, dump_json_line, hash_bytes, utc_timestamp
 
 
-def _base_location(file_index: int) -> dict:
+def _base_location() -> dict:
     return {
-        "file_index": file_index,
         "story": "metadata",
         "paragraph_index_start": 0,
         "paragraph_index_end": 0,
@@ -48,7 +47,7 @@ def _metadata_finding(
         id=uuid4().hex[:8],
         type="metadata",
         severity=severity,
-        location=_base_location(file_index),
+        location=_base_location(),
         context={"before": "", "target": value, "after": ""},
         details=details,
     )
@@ -59,7 +58,7 @@ def _error_finding(file_index: int, message: str) -> Finding:
         id=uuid4().hex[:8],
         type="metadata",
         severity="error",
-        location=_base_location(file_index),
+        location=_base_location(),
         context={"before": "", "target": "", "after": ""},
         details={"category": "error", "message": message},
     )

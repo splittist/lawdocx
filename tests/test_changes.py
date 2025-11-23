@@ -26,7 +26,7 @@ def test_collect_changes_across_stories(tmp_path):
     deletion = next(f for f in findings if f.type == "deletion")
     assert deletion.details["deleted_text"] == "Header change"
 
-    assert {f.location["file_path"] for f in findings} == {str(path)}
+    assert all("file_path" not in f.location for f in findings)
     assert all("file_index" not in f.location for f in findings)
 
     serialized = [finding.as_dict() for finding in findings]

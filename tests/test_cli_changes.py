@@ -22,7 +22,7 @@ def test_cli_changes_single_file(tmp_path):
     assert len(payload["files"][0]["items"]) == 5
 
     locations = [item["location"] for item in payload["files"][0]["items"]]
-    assert all(location["file_path"] == str(path) for location in locations)
+    assert all("file_path" not in location for location in locations)
     assert all("file_index" not in location for location in locations)
 
 
@@ -48,5 +48,5 @@ def test_cli_changes_merge_and_stdin(tmp_path):
     assert len(stdin_entry["items"]) == 5
 
     stdin_location = stdin_entry["items"][0]["location"]
-    assert stdin_location["file_path"] == "stdin"
-    assert stdin_location["file_index"] == 0
+    assert "file_path" not in stdin_location
+    assert "file_index" not in stdin_location

@@ -31,7 +31,6 @@ Without `--merge`, each tool writes one JSON file per input file (still with a s
   "type": "comment | insertion | deletion | bracket | boilerplate | …",
   "severity": "error | warning | info",         // fixed vocabulary
   "location": {
-    "file_index": 0,                             // index into top-level files array
     "story": "main | header--Section1--first | footer--Section2--odd | footnote--7 | endnote--3 | comment | metadata",
     "paragraph_index_start": 84,                 // inclusive, 0-based within the story
     "paragraph_index_end": 84,                   // inclusive; same as start for single-para hits
