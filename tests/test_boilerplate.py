@@ -32,6 +32,23 @@ def test_collect_boilerplate_scans_only_header_and_footer(tmp_path):
     assert all("Page 1 of 3" not in target for target in matched_targets)
 
 
+def test_collect_boilerplate_reports_section_and_type(tmp_path):
+    path = create_boilerplate_docx(
+        tmp_path,
+        "sectioned.docx",
+        header_text="DRAFT for discussion only",
+        footer_text="© 2025 Davis Polk & Wardwell LLP",
+    )
+
+    findings = _as_dicts(collect_boilerplate(str(path)))
+
+    locations = [item["location"] for item in findings]
+
+    assert all("file_index" not in loc for loc in locations)
+    assert all(loc.get("section_number") == 1 for loc in locations)
+    assert all(loc.get("header_type") == "default" for loc in locations)
+
+
 def test_collect_boilerplate_supports_custom_patterns(tmp_path):
     path = create_boilerplate_docx(
         tmp_path,
