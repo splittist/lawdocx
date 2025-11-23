@@ -589,3 +589,87 @@ def create_changes_docx(base_dir: Path, name: str) -> Path:
         zf.writestr("word/endnotes.xml", endnotes_xml)
 
     return path
+
+
+def create_highlights_docx(base_dir: Path, name: str) -> Path:
+    """Create a DOCX file containing highlighted text across stories."""
+
+    path = base_dir / name
+
+    document_body = textwrap.dedent(
+        f"""
+        <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+        <w:document xmlns:w="{WORD_NAMESPACE}" xmlns:r="{RELATIONSHIP_NAMESPACE}">
+          <w:body>
+            <w:p>
+              <w:r><w:t>Normal </w:t></w:r>
+              <w:r><w:rPr><w:highlight w:val="yellow"/></w:rPr><w:t>body highlight</w:t></w:r>
+              <w:r><w:t> after.</w:t></w:r>
+            </w:p>
+            <w:p>
+              <w:r><w:t>Footnote ref</w:t></w:r>
+              <w:r><w:footnoteReference w:id="1"/></w:r>
+            </w:p>
+            <w:p>
+              <w:r><w:t>Endnote ref</w:t></w:r>
+              <w:r><w:endnoteReference w:id="2"/></w:r>
+            </w:p>
+            <w:sectPr>
+              <w:headerReference w:type="default" r:id="rId1"/>
+              <w:footerReference w:type="default" r:id="rId2"/>
+            </w:sectPr>
+          </w:body>
+        </w:document>
+        """
+    ).strip()
+
+    header_xml = textwrap.dedent(
+        f"""
+        <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+        <w:hdr xmlns:w="{WORD_NAMESPACE}" xmlns:r="{RELATIONSHIP_NAMESPACE}">
+          <w:p><w:r><w:rPr><w:highlight w:val="green"/></w:rPr><w:t>Header highlight</w:t></w:r></w:p>
+        </w:hdr>
+        """
+    ).strip()
+
+    footer_xml = textwrap.dedent(
+        f"""
+        <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+        <w:ftr xmlns:w="{WORD_NAMESPACE}" xmlns:r="{RELATIONSHIP_NAMESPACE}">
+          <w:p><w:r><w:rPr><w:highlight w:val="cyan"/></w:rPr><w:t>Footer highlight</w:t></w:r></w:p>
+        </w:ftr>
+        """
+    ).strip()
+
+    footnotes_xml = textwrap.dedent(
+        f"""
+        <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+        <w:footnotes xmlns:w="{WORD_NAMESPACE}">
+          <w:footnote w:id="-1"><w:p><w:r><w:separator/></w:r></w:p></w:footnote>
+          <w:footnote w:id="0"><w:p><w:r><w:continuationSeparator/></w:r></w:p></w:footnote>
+          <w:footnote w:id="1"><w:p><w:r><w:rPr><w:highlight w:val="pink"/></w:rPr><w:t>Footnote highlight</w:t></w:r></w:p></w:footnote>
+        </w:footnotes>
+        """
+    ).strip()
+
+    endnotes_xml = textwrap.dedent(
+        f"""
+        <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+        <w:endnotes xmlns:w="{WORD_NAMESPACE}">
+          <w:endnote w:id="0"><w:p><w:r><w:separator/></w:r></w:p></w:endnote>
+          <w:endnote w:id="2"><w:p><w:r><w:rPr><w:highlight w:val="blue"/></w:rPr><w:t>Endnote highlight</w:t></w:r></w:p></w:endnote>
+        </w:endnotes>
+        """
+    ).strip()
+
+    with zipfile.ZipFile(path, "w") as zf:
+        zf.writestr("[Content_Types].xml", _content_types_for_changes())
+        zf.writestr("_rels/.rels", RELATIONSHIPS_WITH_DOCUMENT)
+        zf.writestr("word/document.xml", document_body)
+        zf.writestr("word/_rels/document.xml.rels", DOCUMENT_RELS_WITH_CHANGES)
+        zf.writestr("word/header1.xml", header_xml)
+        zf.writestr("word/footer1.xml", footer_xml)
+        zf.writestr("word/footnotes.xml", footnotes_xml)
+        zf.writestr("word/endnotes.xml", endnotes_xml)
+
+    return path

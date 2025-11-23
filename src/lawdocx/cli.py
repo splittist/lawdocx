@@ -6,6 +6,7 @@ from lawdocx import __version__, io_utils
 from lawdocx.boilerplate import run_boilerplate
 from lawdocx.comments import run_comments
 from lawdocx.changes import run_changes
+from lawdocx.highlights import run_highlights
 from lawdocx.footnotes import run_footnotes
 from lawdocx.metadata import run_metadata
 from lawdocx.todos import run_todos
@@ -187,6 +188,35 @@ def changes(paths, output, merge):
 
     try:
         run_changes(inputs, merge, output_handle)
+    finally:
+        if should_close:
+            output_handle.close()
+        io_utils.close_inputs(inputs)
+
+
+@main.command()
+@click.argument("paths", nargs=-1, required=True)
+@click.option(
+    "--output",
+    "-o",
+    type=click.Path(),
+    default=None,
+    show_default="stdout",
+    help="Output file path or '-' for stdout.",
+)
+@click.option(
+    "--merge",
+    is_flag=True,
+    help="Combine highlight findings from multiple files into a single envelope.",
+)
+def highlights(paths, output, merge):
+    """Extract background highlighting from DOCX files."""
+
+    inputs = io_utils.resolve_inputs(paths, mode="rb")
+    output_handle, should_close = io_utils.resolve_output_handle(output, mode="w")
+
+    try:
+        run_highlights(inputs, merge, output_handle)
     finally:
         if should_close:
             output_handle.close()
