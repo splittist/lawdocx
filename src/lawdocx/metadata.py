@@ -54,6 +54,7 @@ def _metadata_finding(
     raw_value: str | None = None,
     datatype: str | None = None,
     severity: str = "info",
+    extra_details: dict | None = None,
 ) -> Finding:
     details = {
         "name": name,
@@ -62,6 +63,8 @@ def _metadata_finding(
     }
     if datatype:
         details["datatype"] = datatype
+    if extra_details:
+        details.update(extra_details)
 
     return Finding(
         id=uuid4().hex[:8],
@@ -151,33 +154,54 @@ def _extract_custom_properties(files: list, file_index: int) -> list[Finding]:
     return findings
 
 
-def _extract_revision_parts(reader, file_index: int) -> list[Finding]:
-    findings: list[Finding] = []
+def _extract_custom_xml_files(reader, file_index: int) -> list[Finding]:
+    custom_xml_rel_type = (
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/customXml"
+    )
+    relationships_path = "word/_rels/document.xml.rels"
+
     try:
-        revision_paths = {
-            file.path for file in reader.files if "revision" in file.path.lower()
-        }
-        revision_paths.update(
-            path
-            for path in reader.zipf.namelist()
-            if "revision" in path.lower()
-        )
-        for rev_path in sorted(revision_paths):
-            raw_bytes = reader.zipf.read(rev_path)
-            raw_text = raw_bytes.decode("utf-8", errors="replace")
-            findings.append(
-                _metadata_finding(
-                    file_index=file_index,
-                    name=rev_path,
-                    value=raw_text,
-                    category="revision",
-                    raw_value=raw_text,
-                    datatype="xml",
-                )
+        rels_bytes = reader.zipf.read(relationships_path)
+        rels_root = etree.fromstring(rels_bytes)
+        custom_paths: list[str] = []
+
+        for rel in rels_root.findall(
+            ".//{http://schemas.openxmlformats.org/package/2006/relationships}Relationship"
+        ):
+            if rel.get("Type") == custom_xml_rel_type:
+                target = rel.get("Target", "").lstrip("/")
+                resolved = os.path.normpath(os.path.join("word", target))
+                custom_paths.append(resolved)
+
+        unique_paths = sorted(dict.fromkeys(custom_paths))
+        count = len(unique_paths)
+        summary = f"{count} custom XML part(s) referenced"
+        return [
+            _metadata_finding(
+                file_index=file_index,
+                name="customXmlParts",
+                value=summary,
+                category="custom-xml",
+                raw_value=summary,
+                extra_details={
+                    "count": count,
+                    "paths": unique_paths,
+                },
             )
+        ]
+    except KeyError:
+        return [
+            _metadata_finding(
+                file_index=file_index,
+                name="customXmlParts",
+                value="0 custom XML part(s) referenced",
+                category="custom-xml",
+                raw_value="",
+                extra_details={"count": 0, "paths": [], "status": "missing document.xml.rels"},
+            )
+        ]
     except Exception as exc:  # pragma: no cover - defensive
-        findings.append(_error_finding(file_index, f"Revision history failed: {exc}"))
-    return findings
+        return [_error_finding(file_index, f"Custom XML detection failed: {exc}")]
 
 
 def collect_metadata(file_path: str, file_index: int = 0) -> list[Finding]:
@@ -206,8 +230,7 @@ def collect_metadata(file_path: str, file_index: int = 0) -> list[Finding]:
 
         custom_files = content.docx_reader.files_of_type("custom-properties")
         findings.extend(_extract_custom_properties(custom_files, file_index))
-
-        findings.extend(_extract_revision_parts(content.docx_reader, file_index))
+        findings.extend(_extract_custom_xml_files(content.docx_reader, file_index))
     except Exception as exc:  # pragma: no cover - defensive
         findings.append(_error_finding(file_index, f"Metadata extraction failed: {exc}"))
     finally:

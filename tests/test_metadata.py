@@ -20,7 +20,7 @@ def test_collect_metadata_includes_all_categories(tmp_path):
     findings = _as_dicts(collect_metadata(str(path)))
 
     categories = {f["details"]["category"] for f in findings}
-    assert categories == {"core", "extended", "custom", "revision"}
+    assert categories == {"core", "extended", "custom", "custom-xml"}
 
     values = {f["details"]["name"]: f["context"]["target"] for f in findings}
     assert values["title"] == "Sample Title"
@@ -29,19 +29,28 @@ def test_collect_metadata_includes_all_categories(tmp_path):
     assert values["CustomNote"] == "Sample value"
     assert values["CustomNumber"] == "123"
 
-    revision_entries = [f for f in findings if f["details"]["category"] == "revision"]
-    assert revision_entries
-    assert "Reviewer" in revision_entries[0]["context"]["target"]
+    custom_xml_entries = [
+        f for f in findings if f["details"]["category"] == "custom-xml"
+    ]
+    assert custom_xml_entries
+    entry = custom_xml_entries[0]
+    assert entry["details"]["count"] == 2
+    assert entry["details"]["paths"] == [
+        "customXml/item1.xml",
+        "customXml/item2.xml",
+    ]
     assert all(f["location"]["file_index"] == 0 for f in findings)
 
 
 def test_collect_metadata_gracefully_handles_missing_custom_props(tmp_path):
-    path = create_metadata_docx(tmp_path, "metadata_no_custom.docx", include_custom=False)
+    path = create_metadata_docx(
+        tmp_path, "metadata_no_custom.docx", include_custom=False, include_custom_xml=False
+    )
 
     findings = _as_dicts(collect_metadata(str(path)))
     categories = {f["details"]["category"] for f in findings}
 
-    assert categories == {"core", "extended", "revision"}
+    assert categories == {"core", "extended", "custom-xml"}
     assert all(f["details"]["category"] != "custom" for f in findings)
     assert all(f["severity"] == "info" for f in findings)
 

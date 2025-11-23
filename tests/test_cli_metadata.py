@@ -72,9 +72,16 @@ def test_metadata_non_merge_outputs_one_envelope_per_file(tmp_path):
     first_payload = json.loads(lines[0])
     second_payload = json.loads(lines[1])
 
-    assert first_payload["files"][0]["path"] == str(file_one)
-    assert second_payload["files"][0]["path"] == str(file_two)
+    paths = [first_payload["files"][0]["path"], second_payload["files"][0]["path"]]
+    assert paths == sorted(paths)
+    assert set(paths) == {str(file_one), str(file_two)}
     assert first_payload["files"][0]["sha256"]
     assert second_payload["files"][0]["sha256"]
-    assert any(item["details"]["category"] == "revision" for item in first_payload["files"][0]["items"])
-    assert any(item["details"]["category"] == "revision" for item in second_payload["files"][0]["items"])
+    assert any(
+        item["details"]["category"] == "custom-xml"
+        for item in first_payload["files"][0]["items"]
+    )
+    assert any(
+        item["details"]["category"] == "custom-xml"
+        for item in second_payload["files"][0]["items"]
+    )
