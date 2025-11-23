@@ -51,9 +51,8 @@ DEFAULT_TODO_PATTERNS = [
 ]
 
 
-def _base_location(story: str, paragraph_index: int, file_index: int) -> dict:
+def _base_location(story: str, paragraph_index: int) -> dict:
     return {
-        "file_index": file_index,
         "story": story,
         "paragraph_index_start": paragraph_index,
         "paragraph_index_end": paragraph_index,
@@ -65,7 +64,7 @@ def _error_finding(file_index: int, message: str) -> Finding:
         id=uuid4().hex[:8],
         type="todo",
         severity="error",
-        location=_base_location("body", 0, file_index),
+        location=_base_location("body", 0),
         context={"before": "", "target": "", "after": ""},
         details={"category": "error", "message": message},
     )
@@ -120,7 +119,7 @@ def collect_todos(
                                 id=uuid4().hex[:8],
                                 type="todo",
                                 severity="warning",
-                                location=_base_location(story, para_index, file_index),
+                                location=_base_location(story, para_index),
                                 context=text_context(paragraph, match.start(), match.end()),
                                 details={
                                     "matched_pattern": match.group(0),

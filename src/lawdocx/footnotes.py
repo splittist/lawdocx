@@ -23,9 +23,8 @@ WORD_NAMESPACE = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 NS = {"w": WORD_NAMESPACE}
 
 
-def _base_location(paragraph_index: int, file_index: int) -> dict:
+def _base_location(paragraph_index: int) -> dict:
     return {
-        "file_index": file_index,
         "story": "body",
         "paragraph_index_start": paragraph_index,
         "paragraph_index_end": paragraph_index,
@@ -37,7 +36,7 @@ def _error_finding(file_index: int, message: str) -> Finding:
         id=uuid4().hex[:8],
         type="footnote",
         severity="error",
-        location=_base_location(0, file_index),
+        location=_base_location(0),
         context={"before": "", "target": "", "after": ""},
         details={"category": "error", "message": message},
     )
@@ -152,7 +151,7 @@ def collect_footnotes(file_path: str, file_index: int = 0) -> list[Finding]:
                         id=uuid4().hex[:8],
                         type=ref["type"],
                         severity="info",
-                        location=_base_location(para_index, file_index),
+                        location=_base_location(para_index),
                         context=text_context(paragraph_text, ref["start"], ref["end"]),
                         details=details,
                     )

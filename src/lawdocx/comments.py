@@ -27,7 +27,6 @@ NS = {
 def _base_location(
     paragraph_start: int,
     paragraph_end: int,
-    file_index: int | None,
     comment_id: str | None,
 ) -> dict:
     location = {
@@ -35,19 +34,17 @@ def _base_location(
         "paragraph_index_start": paragraph_start,
         "paragraph_index_end": paragraph_end,
     }
-    if file_index is not None:
-        location["file_index"] = file_index
     if comment_id is not None:
         location["comment_id"] = comment_id
     return location
 
 
-def _error_finding(file_index: int | None, message: str) -> Finding:
+def _error_finding(message: str) -> Finding:
     return Finding(
         id=uuid4().hex[:8],
         type="comment",
         severity="error",
-        location=_base_location(0, 0, file_index, None),
+        location=_base_location(0, 0, None),
         context={"before": "", "target": "", "after": ""},
         details={"category": "error", "message": message},
     )
@@ -132,11 +129,8 @@ def _parse_comments_extended(zipf: zipfile.ZipFile) -> dict[str, dict]:
     return extended
 
 
-def collect_comments(
-    file_path: str, file_index: int | None = None, location_path: str | None = None
-) -> list[Finding]:
+def collect_comments(file_path: str) -> list[Finding]:
     findings: list[Finding] = []
-    location_path = location_path or file_path
 
     try:
         with zipfile.ZipFile(file_path) as zf:
@@ -154,7 +148,7 @@ def collect_comments(
 
             extended_map = _parse_comments_extended(zf)
     except Exception as exc:  # pragma: no cover - defensive
-        return [_error_finding(file_index, f"Failed to open DOCX: {exc}")]
+        return [_error_finding(f"Failed to open DOCX: {exc}")]
 
     try:
         root = etree.fromstring(comments_xml)
@@ -204,17 +198,14 @@ def collect_comments(
                     type="comment",
                     severity="info",
                     location={
-                        **_base_location(paragraph_start, paragraph_end, file_index, comment_id),
-                        "file_path": location_path,
+                        **_base_location(paragraph_start, paragraph_end, comment_id),
                     },
                     context=context,
                     details=details,
                 )
             )
     except Exception as exc:  # pragma: no cover - defensive
-        findings.append(
-            _error_finding(file_index, f"Comment extraction failed: {exc}")
-        )
+        findings.append(_error_finding(f"Comment extraction failed: {exc}"))
 
     return findings
 
@@ -223,7 +214,7 @@ def run_comments(inputs: Iterable[InputSource], merge: bool, output_handle) -> N
     generated_at = utc_timestamp()
     merged_files: List[dict] = []
 
-    for file_index, source in enumerate(inputs):
+    for source in inputs:
         data = source.handle.read()
         sha256 = hash_bytes(data)
 
@@ -236,9 +227,7 @@ def run_comments(inputs: Iterable[InputSource], merge: bool, output_handle) -> N
         else:
             target_path = source.path
 
-        findings = collect_comments(
-            target_path, file_index if merge else None, location_path=source.display_name
-        )
+        findings = collect_comments(target_path)
 
         file_entry = {
             "path": source.display_name,

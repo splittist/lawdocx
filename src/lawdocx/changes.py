@@ -30,28 +30,20 @@ TRACKED_TAGS = {
 }
 
 
-def _base_location(
-    story: str, paragraph_index: int, file_path: str, file_index: int | None
-) -> dict:
-    location = {
-        "file_path": file_path,
+def _base_location(story: str, paragraph_index: int) -> dict:
+    return {
         "story": story,
         "paragraph_index_start": paragraph_index,
         "paragraph_index_end": paragraph_index,
     }
 
-    if file_index is not None:
-        location["file_index"] = file_index
 
-    return location
-
-
-def _error_finding(file_index: int | None, file_path: str, message: str) -> Finding:
+def _error_finding(message: str) -> Finding:
     return Finding(
         id=uuid4().hex[:8],
         type="insertion",
         severity="error",
-        location=_base_location("body", 0, file_path, file_index),
+        location=_base_location("body", 0),
         context={"before": "", "target": "", "after": ""},
         details={"category": "error", "message": message},
     )
@@ -122,8 +114,6 @@ def _change_details(change: dict) -> dict:
 def _collect_story_changes(
     xml_bytes: bytes,
     story: str,
-    file_index: int | None,
-    file_path: str,
     findings: list[Finding],
 ) -> None:
     root = etree.fromstring(xml_bytes)
@@ -133,14 +123,14 @@ def _collect_story_changes(
         paragraph_text, change_records = _paragraph_changes(paragraph)
         for change in change_records:
             findings.append(
-                Finding(
-                    id=uuid4().hex[:8],
-                    type=change["type"],
-                    severity="warning",
-                    location=_base_location(story, para_index, file_path, file_index),
-                    context=text_context(paragraph_text, change["start"], change["end"]),
-                    details=_change_details(change),
-                )
+                    Finding(
+                        id=uuid4().hex[:8],
+                        type=change["type"],
+                        severity="warning",
+                        location=_base_location(story, para_index),
+                        context=text_context(paragraph_text, change["start"], change["end"]),
+                        details=_change_details(change),
+                    )
             )
 
 
@@ -148,8 +138,6 @@ def _collect_notes_changes(
     xml_bytes: bytes,
     story: str,
     note_tag: str,
-    file_index: int | None,
-    file_path: str,
     findings: list[Finding],
 ) -> None:
     root = etree.fromstring(xml_bytes)
@@ -172,9 +160,7 @@ def _collect_notes_changes(
                         id=uuid4().hex[:8],
                         type=change["type"],
                         severity="warning",
-                        location=_base_location(
-                            story, paragraph_index, file_path, file_index
-                        ),
+                        location=_base_location(story, paragraph_index),
                         context=text_context(paragraph_text, change["start"], change["end"]),
                         details=_change_details(change),
                     )
@@ -182,11 +168,8 @@ def _collect_notes_changes(
             paragraph_index += 1
 
 
-def collect_changes(
-    file_path: str, file_index: int | None = None, location_path: str | None = None
-) -> list[Finding]:
+def collect_changes(file_path: str) -> list[Finding]:
     findings: list[Finding] = []
-    location_path = location_path or file_path
 
     try:
         with zipfile.ZipFile(file_path) as zf:
@@ -208,44 +191,22 @@ def collect_changes(
                 zf.read("word/endnotes.xml") if "word/endnotes.xml" in zf.namelist() else None
             )
     except Exception as exc:  # pragma: no cover - defensive
-        return [
-            _error_finding(file_index, location_path, f"Failed to open DOCX: {exc}")
-        ]
+        return [_error_finding(f"Failed to open DOCX: {exc}")]
 
     try:
         _collect_story_changes(
-            document_xml, "body", file_index, location_path, findings
+            document_xml, "body", findings
         )
         for name in sorted(header_parts):
-            _collect_story_changes(
-                header_parts[name], "header", file_index, location_path, findings
-            )
+            _collect_story_changes(header_parts[name], "header", findings)
         for name in sorted(footer_parts):
-            _collect_story_changes(
-                footer_parts[name], "footer", file_index, location_path, findings
-            )
+            _collect_story_changes(footer_parts[name], "footer", findings)
         if footnotes_xml:
-            _collect_notes_changes(
-                footnotes_xml,
-                "footnote",
-                "footnote",
-                file_index,
-                location_path,
-                findings,
-            )
+            _collect_notes_changes(footnotes_xml, "footnote", "footnote", findings)
         if endnotes_xml:
-            _collect_notes_changes(
-                endnotes_xml,
-                "endnote",
-                "endnote",
-                file_index,
-                location_path,
-                findings,
-            )
+            _collect_notes_changes(endnotes_xml, "endnote", "endnote", findings)
     except Exception as exc:  # pragma: no cover - defensive
-        findings.append(
-            _error_finding(file_index, location_path, f"Change extraction failed: {exc}")
-        )
+        findings.append(_error_finding(f"Change extraction failed: {exc}"))
 
     return findings
 
@@ -254,7 +215,7 @@ def run_changes(inputs: Iterable[InputSource], merge: bool, output_handle) -> No
     generated_at = utc_timestamp()
     merged_files: List[dict] = []
 
-    for file_index, source in enumerate(inputs):
+    for source in inputs:
         data = source.handle.read()
         sha256 = hash_bytes(data)
 
@@ -267,11 +228,7 @@ def run_changes(inputs: Iterable[InputSource], merge: bool, output_handle) -> No
         else:
             target_path = source.path
 
-        findings = collect_changes(
-            target_path,
-            file_index if merge else None,
-            location_path=source.display_name,
-        )
+        findings = collect_changes(target_path)
 
         file_entry = {
             "path": source.display_name,
