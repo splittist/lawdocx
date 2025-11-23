@@ -11,7 +11,13 @@ from docx2python import docx2python
 
 from lawdocx.io_utils import InputSource
 from lawdocx.models import Finding
-from lawdocx.utils import build_envelope, dump_json_line, hash_bytes, utc_timestamp
+from lawdocx.utils import (
+    build_envelope,
+    dump_json_line,
+    hash_bytes,
+    text_context,
+    utc_timestamp,
+)
 
 DEFAULT_TODO_PATTERNS = [
     r"\bTODO\b",
@@ -51,14 +57,6 @@ def _base_location(story: str, paragraph_index: int, file_index: int) -> dict:
         "story": story,
         "paragraph_index_start": paragraph_index,
         "paragraph_index_end": paragraph_index,
-    }
-
-
-def _context(text: str, start: int, end: int) -> dict:
-    return {
-        "before": text[max(0, start - 100) : start],
-        "target": text[start:end][:500],
-        "after": text[end : end + 100],
     }
 
 
@@ -123,7 +121,7 @@ def collect_todos(
                                 type="todo",
                                 severity="warning",
                                 location=_base_location(story, para_index, file_index),
-                                context=_context(paragraph, match.start(), match.end()),
+                                context=text_context(paragraph, match.start(), match.end()),
                                 details={
                                     "matched_pattern": match.group(0),
                                     "raw_text": match.group(0),
