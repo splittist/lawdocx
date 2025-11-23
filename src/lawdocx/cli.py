@@ -5,6 +5,7 @@ import click
 from lawdocx import __version__, io_utils
 from lawdocx.boilerplate import run_boilerplate
 from lawdocx.metadata import run_metadata
+from lawdocx.todos import run_todos
 
 
 @click.group()
@@ -100,6 +101,35 @@ def boilerplate(paths, output, merge):
 
     try:
         run_boilerplate(inputs, merge, output_handle)
+    finally:
+        if should_close:
+            output_handle.close()
+        io_utils.close_inputs(inputs)
+
+
+@main.command()
+@click.argument("paths", nargs=-1, required=True)
+@click.option(
+    "--output",
+    "-o",
+    type=click.Path(),
+    default=None,
+    show_default="stdout",
+    help="Output file path or '-' for stdout.",
+)
+@click.option(
+    "--merge",
+    is_flag=True,
+    help="Combine TODO findings from multiple files into a single envelope.",
+)
+def todos(paths, output, merge):
+    """Detect TODO/NTD/placeholder markers in DOCX files."""
+
+    inputs = io_utils.resolve_inputs(paths, mode="rb")
+    output_handle, should_close = io_utils.resolve_output_handle(output, mode="w")
+
+    try:
+        run_todos(inputs, merge, output_handle)
     finally:
         if should_close:
             output_handle.close()
