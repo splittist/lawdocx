@@ -214,9 +214,7 @@ def collect_brackets(
     return findings
 
 
-def run_brackets(
-    inputs: Iterable[InputSource], merge: bool, output_handle, *, patterns: Iterable[str] | None
-) -> None:
+def run_brackets(inputs: Iterable[InputSource], *, patterns: Iterable[str] | None) -> dict:
     generated_at = utc_timestamp()
     merged_files: List[dict] = []
 
@@ -233,9 +231,7 @@ def run_brackets(
         else:
             target_path = source.path
 
-        findings = collect_brackets(
-            target_path, file_index if merge else 0, patterns=patterns
-        )
+        findings = collect_brackets(target_path, file_index, patterns=patterns)
 
         file_entry = {
             "path": source.display_name,
@@ -246,16 +242,8 @@ def run_brackets(
         if temp_path:
             Path(temp_path).unlink(missing_ok=True)
 
-        if merge:
-            merged_files.append(file_entry)
-        else:
-            envelope = build_envelope(
-                tool="lawdocx-brackets", files=[file_entry], generated_at=generated_at
-            )
-            dump_json_line(envelope, output_handle)
+        merged_files.append(file_entry)
 
-    if merge:
-        envelope = build_envelope(
-            tool="lawdocx-brackets", files=merged_files, generated_at=generated_at
-        )
-        dump_json_line(envelope, output_handle)
+    return build_envelope(
+        tool="lawdocx-brackets", files=merged_files, generated_at=generated_at
+    )

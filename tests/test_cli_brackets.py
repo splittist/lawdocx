@@ -42,7 +42,6 @@ def test_cli_brackets_patterns_merge(tmp_path):
             "brackets",
             str(two),
             "-",
-            "--merge",
             "--pattern",
             "ALERT",
         ],
@@ -58,3 +57,28 @@ def test_cli_brackets_patterns_merge(tmp_path):
     assert set(paths) == {str(two), "stdin"}
     stdin_entry = next(entry for entry in payload["files"] if entry["path"] == "stdin")
     assert stdin_entry["items"]
+
+
+def test_cli_brackets_fail_on_findings_and_severity(tmp_path):
+    runner = CliRunner()
+    path = create_boilerplate_docx(
+        tmp_path, "severity.docx", body_paragraphs=["Please [review] this clause"]
+    )
+
+    failing = runner.invoke(
+        main, ["brackets", str(path), "--fail-on-findings"], catch_exceptions=False
+    )
+
+    assert failing.exit_code == 1
+    payload = json.loads(failing.output)
+    assert payload["files"][0]["items"]
+
+    filtered = runner.invoke(
+        main,
+        ["brackets", str(path), "--fail-on-findings", "--severity", "error"],
+        catch_exceptions=False,
+    )
+
+    assert filtered.exit_code == 0
+    filtered_payload = json.loads(filtered.output)
+    assert filtered_payload["files"][0]["items"] == []

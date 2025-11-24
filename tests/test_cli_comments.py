@@ -30,7 +30,7 @@ def test_cli_comments_stdin_merge(tmp_path):
     data = one.read_bytes()
     expected_hash = sha256(data).hexdigest()
 
-    result = runner.invoke(main, ["comments", str(two), "-", "--merge"], input=data)
+    result = runner.invoke(main, ["comments", str(two), "-"], input=data)
 
     assert result.exit_code == 0
     payload = json.loads(result.output)

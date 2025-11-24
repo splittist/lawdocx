@@ -210,15 +210,8 @@ def collect_metadata(file_path: str) -> list[Finding]:
     return findings
 
 
-def run_metadata(inputs: Iterable[InputSource], merge: bool, output_handle) -> None:
-    """Extract metadata for one or more input sources.
-
-    ``run_*`` helpers coordinate reading/writing concerns for CLI entrypoints:
-    they accept resolved ``InputSource`` objects, handle merging, and stream the
-    resulting JSONL envelopes to ``output_handle``.  The orchestration logic
-    lives here so the CLI glue can stay thin and every tool module remains well
-    below the 150-line ceiling.
-    """
+def run_metadata(inputs: Iterable[InputSource]) -> dict:
+    """Extract metadata for one or more input sources."""
 
     generated_at = utc_timestamp()
     merged_files: List[dict] = []
@@ -247,20 +240,8 @@ def run_metadata(inputs: Iterable[InputSource], merge: bool, output_handle) -> N
         if temp_path:
             os.unlink(temp_path)
 
-        if merge:
-            merged_files.append(file_entry)
-        else:
-            envelope = build_envelope(
-                tool="lawdocx-metadata",
-                files=[file_entry],
-                generated_at=generated_at,
-            )
-            dump_json_line(envelope, output_handle)
+        merged_files.append(file_entry)
 
-    if merge:
-        envelope = build_envelope(
-            tool="lawdocx-metadata",
-            files=merged_files,
-            generated_at=generated_at,
-        )
-        dump_json_line(envelope, output_handle)
+    return build_envelope(
+        tool="lawdocx-metadata", files=merged_files, generated_at=generated_at
+    )

@@ -32,7 +32,7 @@ def test_cli_outline_stdin_merge(tmp_path):
     data = one.read_bytes()
     expected_hash = sha256(data).hexdigest()
 
-    result = runner.invoke(main, ["outline", str(two), "-", "--merge"], input=data)
+    result = runner.invoke(main, ["outline", str(two), "-"], input=data)
 
     assert result.exit_code == 0
     payload = json.loads(result.output)

@@ -30,17 +30,12 @@ def test_collect_highlights_covers_all_stories(tmp_path):
 
 def test_run_highlights_emits_envelope_and_hash(tmp_path):
     path = create_highlights_docx(tmp_path, "envelope.docx")
-    buffer = tmp_path / "out.jsonl"
-
     inputs = [InputSource(path=str(path), handle=open(path, "rb"))]
     try:
-        with buffer.open("w") as output:
-            run_highlights(inputs, merge=False, output_handle=output)
+        payload = run_highlights(inputs)
     finally:
         for source in inputs:
             source.handle.close()
-
-    payload = json.loads(buffer.read_text())
 
     assert list(payload.keys()) == ["lawdocx_version", "tool", "generated_at", "files"]
     assert payload["tool"] == "lawdocx-highlights"

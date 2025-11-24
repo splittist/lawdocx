@@ -49,6 +49,40 @@ def dump_json_line(data: dict, output_handle: IO) -> None:
     output_handle.write("\n")
 
 
+SEVERITY_ORDER = {"info": 0, "warning": 1, "error": 2}
+
+
+def filter_files_by_severity(files: Iterable[dict], minimum: str) -> list[dict]:
+    """Return file entries containing only findings at or above ``minimum`` severity."""
+
+    threshold = SEVERITY_ORDER[minimum]
+    filtered: list[dict] = []
+
+    for entry in files:
+        items = [
+            item
+            for item in entry.get("items", [])
+            if SEVERITY_ORDER.get(item.get("severity", "info"), 0) >= threshold
+        ]
+        filtered.append({**entry, "items": items})
+
+    return filtered
+
+
+def summarize_severities(files: Iterable[dict]) -> dict[str, int]:
+    """Count findings by severity across file entries."""
+
+    totals = {"info": 0, "warning": 0, "error": 0}
+
+    for entry in files:
+        for item in entry.get("items", []):
+            severity = item.get("severity", "info")
+            if severity in totals:
+                totals[severity] += 1
+
+    return totals
+
+
 def text_context(
     text: str, start: int, end: int, *, window: int = 100, target_limit: int = 500
 ) -> dict:
