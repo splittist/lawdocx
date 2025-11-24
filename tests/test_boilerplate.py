@@ -71,21 +71,16 @@ def test_run_boilerplate_emits_envelope_and_hash(tmp_path):
         footer_text="© 2024 Example LLP",
         body_paragraphs=["Dated ________"],
     )
-    buffer = tmp_path / "out.jsonl"
-
     inputs = [InputSource(path=str(path), handle=open(path, "rb"))]
     try:
-        with buffer.open("w") as output:
-            run_boilerplate(inputs, merge=False, output_handle=output)
+        envelope = run_boilerplate(inputs)
     finally:
         for source in inputs:
             source.handle.close()
 
-    payload = json.loads(buffer.read_text())
-
-    assert list(payload.keys()) == ["lawdocx_version", "tool", "generated_at", "files"]
-    assert payload["tool"] == "lawdocx-boilerplate"
-    file_entry = payload["files"][0]
+    assert list(envelope.keys()) == ["lawdocx_version", "tool", "generated_at", "files"]
+    assert envelope["tool"] == "lawdocx-boilerplate"
+    file_entry = envelope["files"][0]
     assert file_entry["path"] == str(path)
     assert file_entry["sha256"]
     assert any(item["type"] == "boilerplate" for item in file_entry["items"])

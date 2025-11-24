@@ -19,7 +19,7 @@ def test_metadata_glob_and_merge(tmp_path):
 
     pattern = str(tmp_path / "*.docx")
 
-    result = runner.invoke(main, ["metadata", pattern, "--merge"])
+    result = runner.invoke(main, ["metadata", pattern])
 
     assert result.exit_code == 0
 
@@ -58,7 +58,7 @@ def test_metadata_stdin_stdout(tmp_path):
     assert any(item["details"]["category"] == "custom" for item in file_entry["items"])
 
 
-def test_metadata_non_merge_outputs_one_envelope_per_file(tmp_path):
+def test_metadata_outputs_single_merged_envelope(tmp_path):
     runner = CliRunner()
     file_one = create_metadata_docx(tmp_path, "metadata_sample.docx", include_custom=True)
     file_two = create_metadata_docx(tmp_path, "metadata_no_custom.docx", include_custom=False)
@@ -66,22 +66,13 @@ def test_metadata_non_merge_outputs_one_envelope_per_file(tmp_path):
     result = runner.invoke(main, ["metadata", str(file_one), str(file_two)])
 
     assert result.exit_code == 0
-    lines = [line for line in result.output.splitlines() if line.strip()]
-    assert len(lines) == 2
+    payload = json.loads(result.output)
 
-    first_payload = json.loads(lines[0])
-    second_payload = json.loads(lines[1])
-
-    paths = [first_payload["files"][0]["path"], second_payload["files"][0]["path"]]
+    paths = [entry["path"] for entry in payload["files"]]
     assert paths == sorted(paths)
     assert set(paths) == {str(file_one), str(file_two)}
-    assert first_payload["files"][0]["sha256"]
-    assert second_payload["files"][0]["sha256"]
-    assert any(
-        item["details"]["category"] == "custom-xml"
-        for item in first_payload["files"][0]["items"]
-    )
-    assert any(
-        item["details"]["category"] == "custom-xml"
-        for item in second_payload["files"][0]["items"]
+    assert all(entry["sha256"] for entry in payload["files"])
+    assert all(
+        any(item["details"]["category"] == "custom-xml" for item in entry["items"])
+        for entry in payload["files"]
     )

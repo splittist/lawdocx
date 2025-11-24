@@ -40,17 +40,12 @@ def test_collect_comments_with_extended_data(tmp_path):
 
 def test_run_comments_emits_envelope(tmp_path):
     path = create_comments_docx(tmp_path, "cli-comments.docx")
-    buffer = tmp_path / "out.jsonl"
-
     inputs = [InputSource(path=str(path), handle=open(path, "rb"))]
     try:
-        with buffer.open("w") as output:
-            run_comments(inputs, merge=False, output_handle=output)
+        payload = run_comments(inputs)
     finally:
         for source in inputs:
             source.handle.close()
-
-    payload = json.loads(buffer.read_text())
 
     assert payload["tool"] == "lawdocx-comments"
     file_entry = payload["files"][0]

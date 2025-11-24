@@ -50,17 +50,12 @@ def test_run_todos_emits_envelope_and_hash(tmp_path):
         "envelope.docx",
         footer_text="[confirm with client]",
     )
-    buffer = tmp_path / "out.jsonl"
-
     inputs = [InputSource(path=str(path), handle=open(path, "rb"))]
     try:
-        with buffer.open("w") as output:
-            run_todos(inputs, merge=False, output_handle=output)
+        payload = run_todos(inputs)
     finally:
         for source in inputs:
             source.handle.close()
-
-    payload = json.loads(buffer.read_text())
 
     assert list(payload.keys()) == ["lawdocx_version", "tool", "generated_at", "files"]
     assert payload["tool"] == "lawdocx-todos"

@@ -135,7 +135,7 @@ def collect_todos(
     return findings
 
 
-def run_todos(inputs: Iterable[InputSource], merge: bool, output_handle) -> None:
+def run_todos(inputs: Iterable[InputSource]) -> dict:
     generated_at = utc_timestamp()
     merged_files: List[dict] = []
 
@@ -152,7 +152,7 @@ def run_todos(inputs: Iterable[InputSource], merge: bool, output_handle) -> None
         else:
             target_path = source.path
 
-        findings = collect_todos(target_path, file_index if merge else 0)
+        findings = collect_todos(target_path, file_index)
 
         file_entry = {
             "path": source.display_name,
@@ -163,18 +163,8 @@ def run_todos(inputs: Iterable[InputSource], merge: bool, output_handle) -> None
         if temp_path:
             Path(temp_path).unlink(missing_ok=True)
 
-        if merge:
-            merged_files.append(file_entry)
-        else:
-            envelope = build_envelope(
-                tool="lawdocx-todos",
-                files=[file_entry],
-                generated_at=generated_at,
-            )
-            dump_json_line(envelope, output_handle)
+        merged_files.append(file_entry)
 
-    if merge:
-        envelope = build_envelope(
-            tool="lawdocx-todos", files=merged_files, generated_at=generated_at
-        )
-        dump_json_line(envelope, output_handle)
+    return build_envelope(
+        tool="lawdocx-todos", files=merged_files, generated_at=generated_at
+    )
