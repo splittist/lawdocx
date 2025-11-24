@@ -14,6 +14,7 @@ def test_main_help():
     assert result.exit_code == 0
     assert "Little tools for dealing with docx files" in result.output
     for command in [
+        "audit",
         "metadata",
         "boilerplate",
         "todos",

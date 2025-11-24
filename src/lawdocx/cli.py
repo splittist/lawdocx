@@ -3,6 +3,7 @@
 import click
 
 from lawdocx import __version__, io_utils
+from lawdocx.audit import run_audit
 from lawdocx.boilerplate import run_boilerplate
 from lawdocx.brackets import run_brackets
 from lawdocx.changes import run_changes
@@ -21,6 +22,19 @@ from lawdocx.utils import dump_json_line, filter_files_by_severity, summarize_se
 def main(ctx):
     """Little tools for dealing with docx files, useful for lawyers and their LLMs."""
     ctx.ensure_object(dict)
+
+
+TOOL_RUNNERS = {
+    "metadata": run_metadata,
+    "boilerplate": run_boilerplate,
+    "todos": run_todos,
+    "footnotes": run_footnotes,
+    "changes": run_changes,
+    "comments": run_comments,
+    "highlights": run_highlights,
+    "brackets": lambda inputs: run_brackets(inputs, patterns=None),
+    "outline": run_outline,
+}
 
 
 def _common_options(func):
@@ -92,6 +106,37 @@ def _execute_tool(
         if should_close:
             output_handle.close()
         io_utils.close_inputs(inputs)
+
+
+def _resolve_audit_tools(only: tuple[str, ...], exclude: tuple[str, ...]):
+    if only and exclude:
+        raise click.ClickException("Use either --only or --exclude, not both.")
+
+    unknown_only = [name for name in only if name not in TOOL_RUNNERS]
+    if unknown_only:
+        raise click.ClickException(
+            f"Unknown tool(s) in --only: {', '.join(sorted(unknown_only))}"
+        )
+
+    unknown_exclude = [name for name in exclude if name not in TOOL_RUNNERS]
+    if unknown_exclude:
+        raise click.ClickException(
+            f"Unknown tool(s) in --exclude: {', '.join(sorted(unknown_exclude))}"
+        )
+
+    if only:
+        selected = [(name, TOOL_RUNNERS[name]) for name in only]
+    else:
+        selected = [
+            (name, runner)
+            for name, runner in TOOL_RUNNERS.items()
+            if name not in exclude
+        ]
+
+    if not selected:
+        raise click.ClickException("No tools selected for audit.")
+
+    return selected
 
 
 @main.command()
@@ -234,6 +279,49 @@ def outline(paths, output, verbose, fail_on_findings, severity):
         fail_on_findings,
         severity,
     )
+
+
+@main.command()
+@_common_options
+@click.option(
+    "--only",
+    multiple=True,
+    help="Run only the specified tools (by command name).",
+)
+@click.option(
+    "--exclude",
+    multiple=True,
+    help="Run all tools except the specified ones (by command name).",
+)
+def audit(paths, output, verbose, fail_on_findings, severity, only, exclude):
+    """Run all tools and wrap their outputs in a single envelope."""
+
+    inputs = io_utils.resolve_inputs(paths, mode="rb")
+    output_handle, should_close = io_utils.resolve_output_handle(output, mode="w")
+    selected_tools = _resolve_audit_tools(only, exclude)
+
+    try:
+        if verbose:
+            click.echo(f"Running {len(selected_tools)} tool(s)...", err=True)
+            for name, _ in selected_tools:
+                click.echo(f"  - {name}", err=True)
+
+        envelope, totals = run_audit(inputs, selected_tools, severity=severity.lower())
+        dump_json_line(envelope, output_handle)
+
+        if verbose:
+            click.echo(
+                "Summary: "
+                f"info={totals['info']} warning={totals['warning']} error={totals['error']}",
+                err=True,
+            )
+
+        if fail_on_findings and (totals["warning"] or totals["error"]):
+            raise SystemExit(1)
+    finally:
+        if should_close:
+            output_handle.close()
+        io_utils.close_inputs(inputs)
 
 
 if __name__ == "__main__":
