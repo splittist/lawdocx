@@ -97,7 +97,7 @@ def _execute_tool(
 @main.command()
 @_common_options
 def metadata(paths, output, verbose, fail_on_findings, severity):
-    """Extract metadata from one or more DOCX files."""
+    """Extract metadata."""
 
     _execute_tool(
         run_metadata,
@@ -112,7 +112,7 @@ def metadata(paths, output, verbose, fail_on_findings, severity):
 @main.command()
 @_common_options
 def comments(paths, output, verbose, fail_on_findings, severity):
-    """Extract threaded comments with resolved status."""
+    """Extract comments with threading, resolved status and context."""
 
     _execute_tool(
         run_comments,
@@ -133,7 +133,7 @@ def comments(paths, output, verbose, fail_on_findings, severity):
     help="Regex pattern to match (may be repeated). Defaults to balanced square brackets.",
 )
 def brackets(paths, output, verbose, fail_on_findings, severity, pattern):
-    """Detect bracketed text (or custom regex matches) in DOCX files."""
+    """Detect bracketed text (or custom regex matches)."""
 
     _execute_tool(
         run_brackets,
@@ -149,7 +149,7 @@ def brackets(paths, output, verbose, fail_on_findings, severity, pattern):
 @main.command()
 @_common_options
 def boilerplate(paths, output, verbose, fail_on_findings, severity):
-    """Detect boilerplate legends and page artifacts in DOCX files."""
+    """Detect boilerplate artifacts in headers and footers."""
 
     _execute_tool(
         run_boilerplate,
@@ -164,7 +164,7 @@ def boilerplate(paths, output, verbose, fail_on_findings, severity):
 @main.command()
 @_common_options
 def todos(paths, output, verbose, fail_on_findings, severity):
-    """Detect TODO/NTD/placeholder markers in DOCX files."""
+    """Detect TODO/NTD/placeholder markers."""
 
     _execute_tool(
         run_todos,
@@ -179,7 +179,7 @@ def todos(paths, output, verbose, fail_on_findings, severity):
 @main.command()
 @_common_options
 def footnotes(paths, output, verbose, fail_on_findings, severity):
-    """Extract footnotes and endnotes with contextual locations."""
+    """Extract footnotes and endnotes with context."""
 
     _execute_tool(
         run_footnotes,
@@ -209,7 +209,7 @@ def changes(paths, output, verbose, fail_on_findings, severity):
 @main.command()
 @_common_options
 def highlights(paths, output, verbose, fail_on_findings, severity):
-    """Extract background highlighting from DOCX files."""
+    """Extract highlighted text."""
 
     _execute_tool(
         run_highlights,
@@ -224,7 +224,7 @@ def highlights(paths, output, verbose, fail_on_findings, severity):
 @main.command()
 @_common_options
 def outline(paths, output, verbose, fail_on_findings, severity):
-    """Detect outline numbering issues in DOCX files."""
+    """Detect outline numbering issues."""
 
     _execute_tool(
         run_outline,
