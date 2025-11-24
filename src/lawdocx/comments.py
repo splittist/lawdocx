@@ -11,7 +11,7 @@ from lxml import etree
 
 from lawdocx.io_utils import InputSource
 from lawdocx.models import Finding
-from lawdocx.utils import build_envelope, dump_json_line, hash_bytes, text_context, utc_timestamp
+from lawdocx.utils import build_envelope, hash_bytes, text_context, utc_timestamp
 
 WORD_NAMESPACE = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 W14_NAMESPACE = "http://schemas.microsoft.com/office/word/2010/wordml"

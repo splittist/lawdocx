@@ -10,7 +10,7 @@ from docx2python import docx2python
 
 from lawdocx.io_utils import InputSource
 from lawdocx.models import Finding
-from lawdocx.utils import build_envelope, dump_json_line, hash_bytes, utc_timestamp
+from lawdocx.utils import build_envelope, hash_bytes, utc_timestamp
 
 DEFAULT_BOILERPLATE = [
     # 1–12: Draft / watermark legends (case-insensitive)

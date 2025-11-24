@@ -5,12 +5,12 @@ import click
 from lawdocx import __version__, io_utils
 from lawdocx.boilerplate import run_boilerplate
 from lawdocx.brackets import run_brackets
-from lawdocx.comments import run_comments
 from lawdocx.changes import run_changes
-from lawdocx.highlights import run_highlights
+from lawdocx.comments import run_comments
 from lawdocx.footnotes import run_footnotes
-from lawdocx.outline import run_outline
+from lawdocx.highlights import run_highlights
 from lawdocx.metadata import run_metadata
+from lawdocx.outline import run_outline
 from lawdocx.todos import run_todos
 from lawdocx.utils import dump_json_line, filter_files_by_severity, summarize_severities
 
