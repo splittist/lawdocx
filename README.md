@@ -1,93 +1,55 @@
 # lawdocx
 
-Little tools for dealing with .docx files – useful for lawyers and their LLMs.
+Command-line micro-tools for surfacing the mechanical artifacts that linger inside `.docx` contracts. Each subcommand reads one or more files (or `-` for stdin) and emits a newline-terminated JSON envelope that is easy for humans, scripts, or LLM prompts to consume.
 
+## Quickstart
 ```bash
 pip install lawdocx
-lawdocx audit deals/**/*.docx --merge > audit-2025-Q4.json
+lawdocx comments draft.docx --verbose
 ```
 
-## What it is
+Every command accepts:
+- One or more `PATH` arguments (globs expanded, duplicates removed; `-` reads stdin).
+- `--output/-o` to write to a file instead of stdout.
+- `--severity` (`info`/`warning`/`error`) to drop lower-severity findings.
+- `--fail-on-findings/-f` to exit non-zero when any warning or error remains after filtering.
+- `--verbose/-v` for progress plus a severity summary.
 
-A small, deliberately simple collection of command-line tools that extract the things people routinely leave behind in Word contracts:
+## JSON shape (stable across tools)
+- Envelope: `{ lawdocx_version, tool, generated_at, files: [...] }`.
+- File entries: `{ path, sha256, items: [...] }` where `path` is the CLI display name (or `stdin`).
+- Findings: `{ id, type, severity, location, context, details }` with tool-specific `details`.
+- Context windows come from the triggering text span; `location` always includes `story` plus paragraph indices, with extra fields per tool.
 
-- unresolved comments (including modern threaded/replied/done comments)  
-- tracked changes (insertions, deletions, moves, formatting)  
-- square-bracket placeholders and TODO/NTD markers  
-- DRAFT watermarks, law-firm footers, page-numbering boilerplate  
-- document metadata and custom properties  
-- footnotes and endnotes (full text)  
-- text highlighting  
-- heading hierarchy and manual numbering problems  
+## Tools (what they actually scan)
+- **`lawdocx comments`** – DOCX comment threads with resolved/done markers and optional parent pointers. Anchors spans in body, headers, or footers when `w:commentRange*` markers exist; otherwise falls back to comment text context.
+- **`lawdocx changes`** – Tracked insertions/deletions/moves across body, headers, footers, footnotes, and endnotes. Captures author/date attributes when present.
+- **`lawdocx brackets`** – Finds balanced square brackets by default. Pass `-p/--pattern` multiple times to supply custom regex (DOTALL + MULTILINE). Scans body, headers, footers, footnotes, and endnotes.
+- **`lawdocx todos`** – TODO/NTD/TBD/placeholder markers using a fixed regex list (e.g., `TODO`, `FIXME`, `[?]`, "client to confirm") across body, headers, and footers.
+- **`lawdocx boilerplate`** – Header/footer boilerplate (draft legends, firm footers, page-number artifacts, placeholder dates, temp paths) using the built-in regex catalog. Records section number and header/footer type when available.
+- **`lawdocx metadata`** – Core, extended, and custom properties plus custom XML part references. Marks extraction failures as errors.
+- **`lawdocx footnotes`** – Footnote/endnote references wherever they appear (body, headers, footers, note stories). Includes rendered note text when present; flags missing text in `details.status`.
+- **`lawdocx highlights`** – Highlighted runs and their colors across body, headers, footers, footnotes, and endnotes.
+- **`lawdocx outline`** – Flags manual numbering (error) or suspicious numbering (warning) in body paragraphs that are not styled as headings. Uses simple pattern checks rather than rebuilding the full outline.
+- **`lawdocx audit`** – Runs a selected subset of the above (`--only`/`--exclude`). Produces an outer envelope with `tools: [...]` containing each subcommand’s filtered output and totals across all tools.
 
-Each tool reads one or more .docx files and writes clean, predictable JSON. That JSON is designed to be consumed directly by LLMs, scripts, or pandas.
+## How humans might use it
+- **Pre-send scrub:** Run `lawdocx boilerplate` and `lawdocx comments` before emailing a draft; combine with `--fail-on-findings` in a CI job to block warnings/errors.
+- **Redline triage:** Nightly `lawdocx changes deal/*.docx > changes.json` to list insertions/deletions with context and authors for partner review.
+- **Placeholder sweep:** `lawdocx brackets` and `lawdocx todos` over a folder to collect unresolved variables and TODOs into a single JSON line per file.
+- **Numbering sanity check:** `lawdocx outline` on inbound paper to spot manual numbering in non-heading paragraphs that may break cross-references.
 
-## Why this exists
+## How LLM workflows can consume it
+- Use `severity` to gate reasoning (e.g., summarize only `warning`/`error`).
+- Ground prompts with `context.target` for verbatim snippets and `context.before/after` for surrounding text; `location.story` + paragraph indices help build human-readable pointers.
+- When reading audit output, iterate `envelope["tools"]`—each nested tool already filtered by the CLI `--severity` value.
 
-Commercial contract-review platforms are excellent at deep analysis but are expensive and sometimes over-confident. The simple mechanical questions (“are there still comments/brackets/boilerplate?”) are often answered badly or not at all.
-
-These tools answer only those mechanical questions.
-
-## Tools
-
-| command               | purpose                                                                  | covers headers/footers/footnotes/comments |
-|-----------------------|--------------------------------------------------------------------------|-------------------------------------------|
-| `lawdocx comments`    | modern threaded comments + resolved status                               | Yes |
-| `lawdocx changes`     | tracked changes + authors                                                | Yes |
-| `lawdocx brackets`    | [anything in square brackets]                                            | Yes |
-| `lawdocx todos`       | TODO / NTD / [?] etc.                                                    | Yes |
-| `lawdocx boilerplate` | DRAFT, law-firm footers, Page X of Y, [Date]…                            | Yes |
-| `lawdocx metadata`    | core, extended, and custom properties plus custom XML part references (docx2python + lxml) | – |
-| `lawdocx footnotes`   | full footnote and endnote text                                           | Yes |
-| `lawdocx highlights`  | background highlighting                                                  | Yes |
-| `lawdocx outline`     | heading hierarchy + manual numbering detection                           | Yes |
-| `lawdocx audit`       | runs everything and optionally merges output                             | Yes |
-
-Every tool works on a single file, multiple files, globs, or stdin and writes the same JSON schema to stdout. Each one surfaces the raw values and locations it finds, without inference or paraphrasing.
-
-The `brackets` command defaults to balanced square brackets but accepts repeated `--pattern/-p` regexes for custom searches, including multi-paragraph matches.
-
-The comments tool extracts the full comment text (including multiple paragraphs and initials), links threaded replies, and reports the exact body text span between matching `w:commentRangeStart`/`w:commentRangeEnd` markers with surrounding context.
-
-## Example
-
-```bash
-# Quick safety check before sending
-lawdocx boilerplate final.docx && lawdocx comments final.docx && echo "Clean"
-
-# Full batch audit of a folder
-lawdocx audit incoming/*.docx --merge > incoming-audit.json
-```
-
-The resulting JSON uses a single stable schema (documented in SCHEMA.md) so downstream prompts or scripts never break.
-
-## Design principles
-
-- Each tool ≤ 150 lines  
-- No configuration files in v1 (hard-coded patterns are honest and predictable)  
-- Primary parser is `docx2python`; minimal lxml only where absolutely required  
-- Batch mode from day one  
-- All findings include precise location information  
-- Intelligence belongs in the consumer (LLM, script, human), not the extractor
-
-## Installation
-
-```bash
-pip install lawdocx
-```
-
-or from source:
-
-```bash
-pip install git+https://github.com/yourname/lawdocx.git
-```
+## Future development ideas
+- Optional exporters (CSV/SARIF) alongside the current JSONL envelopes.
+- A combined “outline + heading anchor” view to link findings back to nearest headings.
+- Interactive TUI for paging through findings with quick filters.
 
 ## Contributing
-
-Contributions are very welcome. Please keep new tools small, focused, and faithful to the pattern established by the existing ones. Tests should include real (anonymised) .docx samples.
-
-## License
-
-Apache License 2.0 (see LICENSE)
-
-Enjoy the calm of knowing exactly what is hiding in every Word file.
+- Follow the existing pattern: a small `collect_*` helper plus a `run_*` wrapper that hashes inputs, supports stdin, and returns a `build_envelope(...)` result.
+- Keep severities consistent with the tool’s intent (current tools mostly emit `info` for informational data and `warning` when action may be needed).
+- Add new commands to `TOOL_RUNNERS` in `src/lawdocx/cli.py` so audit mode can orchestrate them, and prefer deterministic outputs for easy downstream use.
