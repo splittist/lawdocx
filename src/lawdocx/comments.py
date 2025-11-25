@@ -25,12 +25,14 @@ NS = {
 
 
 def _base_location(
-    paragraph_start: int,
-    paragraph_end: int,
+    paragraph_start: int | None,
+    paragraph_end: int | None,
     comment_id: str | None,
+    *,
+    story: str = "comment",
 ) -> dict:
     location = {
-        "story": "comment",
+        "story": story,
         "paragraph_index_start": paragraph_start,
         "paragraph_index_end": paragraph_end,
     }
@@ -72,26 +74,38 @@ def _comment_paragraphs(comment_elem: etree._Element) -> tuple[list[str], list[s
     return para_texts, para_ids
 
 
-def _scan_body_comment_ranges(document_xml: bytes) -> tuple[str, dict[str, dict[str, int]]]:
-    root = etree.fromstring(document_xml)
+def _scan_story_comment_ranges(
+    xml_bytes: bytes, story: str
+) -> tuple[str, dict[str, dict[str, int | str]]]:
+    root = etree.fromstring(xml_bytes)
     text_parts: list[str] = []
-    open_ranges: dict[str, int] = {}
-    ranges: dict[str, dict[str, int]] = {}
+    open_ranges: dict[str, dict[str, int | str]] = {}
+    ranges: dict[str, dict[str, int | str]] = {}
     current_length = 0
+    paragraph_index = -1
 
     def _walk(node: etree._Element) -> None:
-        nonlocal current_length
+        nonlocal current_length, paragraph_index
         local_name = etree.QName(node).localname
+
+        if local_name == "p":
+            paragraph_index += 1
 
         if local_name in {"commentRangeStart", "commentRangeEnd"}:
             comment_id = node.get(f"{{{WORD_NAMESPACE}}}id")
             if comment_id:
                 if local_name == "commentRangeStart":
-                    open_ranges[comment_id] = current_length
+                    open_ranges[comment_id] = {
+                        "start": current_length,
+                        "paragraph_index_start": paragraph_index,
+                        "story": story,
+                    }
                 else:
-                    start = open_ranges.pop(comment_id, None)
-                    if start is not None:
-                        ranges[comment_id] = {"start": start, "end": current_length}
+                    info = open_ranges.pop(comment_id, None)
+                    entry = info or {"story": story}
+                    entry["end"] = current_length
+                    entry["paragraph_index_end"] = paragraph_index
+                    ranges[comment_id] = entry
 
         if local_name in {"t", "delText"}:
             value = node.text or ""
@@ -102,7 +116,56 @@ def _scan_body_comment_ranges(document_xml: bytes) -> tuple[str, dict[str, dict[
             _walk(child)
 
     _walk(root)
+
+    for comment_id, info in open_ranges.items():
+        ranges.setdefault(comment_id, info)
+
     return "".join(text_parts), ranges
+
+
+def _scan_comment_ranges(zipf: zipfile.ZipFile) -> dict[str, dict[str, int | str]]:
+    def _merge_ranges(
+        story: str, xml_bytes: bytes, range_map: dict[str, dict[str, int | str]]
+    ) -> None:
+        text, story_ranges = _scan_story_comment_ranges(xml_bytes, story)
+        for comment_id, span in story_ranges.items():
+            if comment_id not in range_map:
+                range_map[comment_id] = {**span, "text": text}
+                continue
+
+            existing = range_map[comment_id]
+            for key, value in span.items():
+                if key not in existing and value is not None:
+                    existing[key] = value
+            if "text" not in existing:
+                existing["text"] = text
+
+    range_map: dict[str, dict[str, int | str]] = {}
+
+    try:
+        document_xml = zipf.read("word/document.xml")
+        _merge_ranges("body", document_xml, range_map)
+    except Exception:
+        pass
+
+    header_parts = {
+        name: zipf.read(name)
+        for name in zipf.namelist()
+        if name.startswith("word/header") and name.endswith(".xml")
+    }
+    footer_parts = {
+        name: zipf.read(name)
+        for name in zipf.namelist()
+        if name.startswith("word/footer") and name.endswith(".xml")
+    }
+
+    for name in sorted(header_parts):
+        _merge_ranges("header", header_parts[name], range_map)
+
+    for name in sorted(footer_parts):
+        _merge_ranges("footer", footer_parts[name], range_map)
+
+    return range_map
 
 
 def _parse_comments_extended(zipf: zipfile.ZipFile) -> dict[str, dict]:
@@ -140,10 +203,8 @@ def collect_comments(file_path: str) -> list[Finding]:
                 return findings
 
             try:
-                document_xml = zf.read("word/document.xml")
-                body_text, range_map = _scan_body_comment_ranges(document_xml)
+                range_map = _scan_comment_ranges(zf)
             except Exception:
-                body_text = ""
                 range_map = {}
 
             extended_map = _parse_comments_extended(zf)
@@ -186,20 +247,52 @@ def collect_comments(file_path: str) -> list[Finding]:
             if parent_comment_id:
                 details["parent_comment_id"] = parent_comment_id
 
-            if comment_id and comment_id in range_map and body_text:
-                span = range_map[comment_id]
-                context = text_context(body_text, span["start"], span["end"])
+            anchor_range = range_map.get(comment_id or "") if comment_id else None
+            has_story_context = (
+                anchor_range
+                and anchor_range.get("text")
+                and anchor_range.get("start") is not None
+                and anchor_range.get("end") is not None
+            )
+
+            if has_story_context:
+                context = text_context(
+                    anchor_range["text"],
+                    int(anchor_range["start"]),
+                    int(anchor_range["end"]),
+                )
             else:
                 context = text_context(comment_text, 0, len(comment_text))
+                details["context_fallback"] = "comment_text"
+
+            anchor_story = anchor_range.get("story") if anchor_range else None
+            anchor_para_start = anchor_range.get("paragraph_index_start") if anchor_range else None
+            anchor_para_end = anchor_range.get("paragraph_index_end") if anchor_range else None
+
+            location_story = anchor_story or "comment"
+            paragraph_index_start = (
+                anchor_para_start if anchor_para_start is not None else paragraph_start
+            )
+            paragraph_index_end = (
+                anchor_para_end if anchor_para_end is not None else paragraph_end
+            )
+
+            location = _base_location(
+                paragraph_index_start, paragraph_index_end, comment_id, story=location_story
+            )
+            location["target_location"] = _base_location(
+                paragraph_start, paragraph_end, comment_id, story="comment"
+            )
+
+            if not anchor_story or anchor_para_start is None or anchor_para_end is None:
+                location["anchor_fallback"] = True
 
             findings.append(
                 Finding(
                     id=uuid4().hex[:8],
                     type="comment",
                     severity="info",
-                    location={
-                        **_base_location(paragraph_start, paragraph_end, comment_id),
-                    },
+                    location=location,
                     context=context,
                     details=details,
                 )
