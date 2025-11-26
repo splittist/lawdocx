@@ -1,0 +1,87 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "lawdocx output",
+  "description": "Schema for JSON envelopes emitted by lawdocx tools.",
+  "type": "object",
+  "oneOf": [
+    { "$ref": "#/definitions/auditEnvelope" },
+    { "$ref": "#/definitions/toolEnvelope" }
+  ],
+  "definitions": {
+    "context": {
+      "type": "object",
+      "properties": {
+        "before": { "type": "string" },
+        "target": { "type": "string" },
+        "after": { "type": "string" }
+      },
+      "required": ["before", "target", "after"],
+      "additionalProperties": false
+    },
+    "finding": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "type": { "type": "string" },
+        "severity": { "type": "string", "enum": ["info", "warning", "error"] },
+        "location": {
+          "type": "object",
+          "properties": {
+            "story": { "type": "string" },
+            "paragraph_index_start": { "type": ["integer", "null"] },
+            "paragraph_index_end": { "type": ["integer", "null"] }
+          },
+          "required": ["story"],
+          "additionalProperties": true
+        },
+        "context": { "$ref": "#/definitions/context" },
+        "details": { "type": "object" }
+      },
+      "required": ["id", "type", "severity", "location", "context", "details"],
+      "additionalProperties": false
+    },
+    "fileEntry": {
+      "type": "object",
+      "properties": {
+        "path": { "type": "string" },
+        "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "items": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/finding" }
+        }
+      },
+      "required": ["path", "sha256", "items"],
+      "additionalProperties": false
+    },
+    "toolEnvelopeBase": {
+      "type": "object",
+      "properties": {
+        "lawdocx_version": { "type": "string" },
+        "tool": { "type": "string" },
+        "generated_at": { "type": "string" },
+        "files": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/fileEntry" }
+        }
+      },
+      "required": ["lawdocx_version", "tool", "generated_at", "files"],
+      "additionalProperties": false
+    },
+    "toolEnvelope": { "$ref": "#/definitions/toolEnvelopeBase" },
+    "auditEnvelope": {
+      "allOf": [
+        { "$ref": "#/definitions/toolEnvelopeBase" },
+        {
+          "properties": {
+            "tool": { "const": "lawdocx-audit" },
+            "tools": {
+              "type": "array",
+              "items": { "$ref": "#/definitions/toolEnvelope" }
+            }
+          },
+          "required": ["tools"]
+        }
+      ]
+    }
+  }
+}
