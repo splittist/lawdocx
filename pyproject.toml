@@ -4,7 +4,15 @@ version = "0.1.0"
 description = "Little tools for dealing with docx files, useful for lawyers and their LLMs"
 readme = "README.md"
 requires-python = ">=3.9"
-license = {text = "Apache-2.0"}
+license = "Apache-2.0"
+authors = [
+    { name = "John Q Splittist" },
+]
+classifiers = [
+    "Programming Language :: Python",
+    "Development Status :: 4 - Beta",
+]
+
 dependencies = [
     "click>=8.1.0",
     "docx2python>=2.0.0",
@@ -13,6 +21,9 @@ dependencies = [
 
 [project.scripts]
 lawdocx = "lawdocx.cli:main"
+
+[project.urls]
+Repository = "https://github.com/splittist/lawdocx"
 
 [build-system]
 requires = ["hatchling"]
