@@ -8,7 +8,7 @@ Every tool emits this structure:
 
 ```json
 {
-  "lawdocx_version": "0.1.1",
+  "lawdocx_version": "0.2.0",
   "tool": "lawdocx-comments",
   "generated_at": "2025-11-22T14:27:12.123456+00:00",
   "files": [
