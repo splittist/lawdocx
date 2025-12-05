@@ -10,44 +10,115 @@
   "definitions": {
     "context": {
       "type": "object",
+      "description": "Text context surrounding the finding's target span.",
       "properties": {
-        "before": { "type": "string" },
-        "target": { "type": "string" },
-        "after": { "type": "string" }
+        "before": { "type": "string", "description": "Up to 100 characters preceding the target." },
+        "target": { "type": "string", "description": "The flagged text (truncated to 500 characters)." },
+        "after": { "type": "string", "description": "Up to 100 characters following the target." }
       },
       "required": ["before", "target", "after"],
       "additionalProperties": false
     },
+    "location": {
+      "type": "object",
+      "description": "Location of a finding within the document. Base fields are always present; tools may add additional fields.",
+      "properties": {
+        "story": {
+          "type": "string",
+          "description": "Document story containing the finding: body, header, footer, footnote, endnote, comment, or metadata."
+        },
+        "paragraph_index_start": {
+          "type": ["integer", "null"],
+          "description": "0-based paragraph index where the finding starts within the story."
+        },
+        "paragraph_index_end": {
+          "type": ["integer", "null"],
+          "description": "0-based paragraph index where the finding ends (inclusive)."
+        },
+        "comment_id": {
+          "type": "string",
+          "description": "(comments tool) The comment's XML ID."
+        },
+        "target_location": {
+          "type": "object",
+          "description": "(comments tool) Location within the comment text itself."
+        },
+        "anchor_fallback": {
+          "type": "boolean",
+          "description": "(comments tool) True when anchor range could not be resolved."
+        },
+        "section_number": {
+          "type": "integer",
+          "description": "(boilerplate tool) 1-based section number."
+        },
+        "header_type": {
+          "type": "string",
+          "description": "(boilerplate tool) Header/footer type: default, first, or even."
+        }
+      },
+      "required": ["story", "paragraph_index_start", "paragraph_index_end"],
+      "additionalProperties": true
+    },
     "finding": {
       "type": "object",
+      "description": "A single finding representing an item detected by a tool.",
       "properties": {
-        "id": { "type": "string" },
-        "type": { "type": "string" },
-        "severity": { "type": "string", "enum": ["info", "warning", "error"] },
-        "location": {
-          "type": "object",
-          "properties": {
-            "story": { "type": "string" },
-            "paragraph_index_start": { "type": ["integer", "null"] },
-            "paragraph_index_end": { "type": ["integer", "null"] }
-          },
-          "required": ["story"],
-          "additionalProperties": true
+        "id": {
+          "type": "string",
+          "description": "Random 8-character hex identifier for the finding."
         },
+        "type": {
+          "type": "string",
+          "description": "Finding type. One of: comment, insertion, deletion, move_from, move_to, bracket, todo, boilerplate, footnote, endnote, highlight, outline, metadata.",
+          "enum": [
+            "comment",
+            "insertion",
+            "deletion",
+            "move_from",
+            "move_to",
+            "bracket",
+            "todo",
+            "boilerplate",
+            "footnote",
+            "endnote",
+            "highlight",
+            "outline",
+            "metadata"
+          ]
+        },
+        "severity": {
+          "type": "string",
+          "enum": ["info", "warning", "error"],
+          "description": "Severity level: info (FYI), warning (needs attention), error (must fix)."
+        },
+        "location": { "$ref": "#/definitions/location" },
         "context": { "$ref": "#/definitions/context" },
-        "details": { "type": "object" }
+        "details": {
+          "type": "object",
+          "description": "Tool-specific additional information. See SCHEMA.md for per-tool fields.",
+          "additionalProperties": true
+        }
       },
       "required": ["id", "type", "severity", "location", "context", "details"],
       "additionalProperties": false
     },
     "fileEntry": {
       "type": "object",
+      "description": "Output for a single processed file.",
       "properties": {
-        "path": { "type": "string" },
-        "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "path": {
+          "type": "string",
+          "description": "File path or 'stdin' for piped input."
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$",
+          "description": "SHA-256 hash of the input file."
+        },
         "items": {
           "type": "array",
-          "items": { "$ref": "#/definitions/finding" }
+          "items": { "$ref": "#/definitions/finding" },
+          "description": "Findings detected in the file."
         }
       },
       "required": ["path", "sha256", "items"],
@@ -55,13 +126,24 @@
     },
     "toolEnvelopeBase": {
       "type": "object",
+      "description": "Common envelope structure for all tool outputs.",
       "properties": {
-        "lawdocx_version": { "type": "string" },
-        "tool": { "type": "string" },
-        "generated_at": { "type": "string" },
+        "lawdocx_version": {
+          "type": "string",
+          "description": "Version of the lawdocx package."
+        },
+        "tool": {
+          "type": "string",
+          "description": "Tool name: lawdocx-metadata, lawdocx-comments, lawdocx-brackets, lawdocx-boilerplate, lawdocx-todos, lawdocx-footnotes, lawdocx-changes, lawdocx-highlights, lawdocx-outline, or lawdocx-audit."
+        },
+        "generated_at": {
+          "type": "string",
+          "description": "ISO 8601 UTC timestamp when the output was generated."
+        },
         "files": {
           "type": "array",
-          "items": { "$ref": "#/definitions/fileEntry" }
+          "items": { "$ref": "#/definitions/fileEntry" },
+          "description": "Array of file entries (one per input file)."
         }
       },
       "required": ["lawdocx_version", "tool", "generated_at", "files"],
@@ -72,11 +154,13 @@
       "allOf": [
         { "$ref": "#/definitions/toolEnvelopeBase" },
         {
+          "type": "object",
           "properties": {
             "tool": { "const": "lawdocx-audit" },
             "tools": {
               "type": "array",
-              "items": { "$ref": "#/definitions/toolEnvelope" }
+              "items": { "$ref": "#/definitions/toolEnvelope" },
+              "description": "Nested envelopes from each tool run by the audit command."
             }
           },
           "required": ["tools"]
